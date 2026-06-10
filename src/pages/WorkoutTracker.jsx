@@ -203,11 +203,18 @@ export default function WorkoutTracker() {
                         <h3 className="font-bold text-lg text-gray-800">{routine.name}</h3>
                         <p className="text-sm text-gray-500">{routine.description}</p>
                       </div>
-                      {routine.created_by_ai && (
-                        <div className="bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs font-medium">
-                          IA
-                        </div>
-                      )}
+                      <div className="flex flex-col gap-1 items-end">
+                        {routine.created_by_ai && (
+                          <div className="bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs font-medium">
+                            IA
+                          </div>
+                        )}
+                        {routine.nutritionist_id && (
+                          <div className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap">
+                            Nutricionista
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-600">
                       <span>{routine.exercises?.length || 0} exercícios</span>

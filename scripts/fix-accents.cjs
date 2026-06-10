@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable */
+ 
 const fs = require('fs');
 const path = require('path');
 const parser = require('@babel/parser');

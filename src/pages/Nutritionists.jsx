@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { appClient } from '@/api/appClient';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function Nutritionists() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -20,11 +22,29 @@ export default function Nutritionists() {
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [initialMessage, setInitialMessage] = useState('');
 
+  const { data: currentProfiles = [] } = useQuery({
+    queryKey: ['userProfile'],
+    queryFn: async () => {
+      const me = await appClient.auth.me();
+      return appClient.entities.UserProfile.filter({ created_by: me.email }, '-created_date', 1);
+    },
+    initialData: []
+  });
+  const currentProfile = currentProfiles?.[0];
+  const isNutritionist = currentProfile?.user_type === 'nutritionist';
+
+  useEffect(() => {
+    if (isNutritionist) {
+      navigate(createPageUrl('NutritionistDashboard'), { replace: true });
+    }
+  }, [isNutritionist, navigate]);
+
   // Fetch nutritionists
   const { data: nutritionists, isLoading } = useQuery({
     queryKey: ['nutritionists'],
     queryFn: () => appClient.entities.UserProfile.filter({ user_type: 'nutritionist' }),
-    initialData: []
+    initialData: [],
+    enabled: !isNutritionist
   });
 
   // Create conversation mutation
@@ -57,6 +77,8 @@ export default function Nutritionists() {
       window.location.href = createPageUrl('Chat');
     }
   });
+
+  if (isNutritionist) return null;
 
   const categories = [
     { value: 'all', label: 'Todos' },

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronUp, Dumbbell, Plus, Save, Search, Trash2 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowLeft, ChevronDown, ChevronUp, Dumbbell, Plus, Save, Search, Trash2, User } from 'lucide-react';
 import { appClient } from '@/api/appClient';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useActivePatients } from '@/hooks/useActivePatients';
 
 export default function RoutineBuilder() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [error, setError] = useState('');
   const [showPicker, setShowPicker] = useState(false);
@@ -24,6 +27,31 @@ export default function RoutineBuilder() {
     duration_minutes: 45
   });
   const [exercises, setExercises] = useState([]);
+  const [selectedPatientEmail, setSelectedPatientEmail] = useState('');
+
+  const { data: currentProfiles = [] } = useQuery({
+    queryKey: ['userProfile'],
+    queryFn: async () => {
+      const me = await appClient.auth.me();
+      return appClient.entities.UserProfile.filter({ created_by: me.email }, '-created_date', 1);
+    },
+    initialData: []
+  });
+  const currentProfile = currentProfiles?.[0];
+  const isNutritionist = currentProfile?.user_type === 'nutritionist';
+
+  const { data: activePatients = [] } = useActivePatients(isNutritionist);
+
+  const preselectedPatientFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('patient_id') || '';
+  }, [location.search]);
+
+  useEffect(() => {
+    if (isNutritionist && preselectedPatientFromQuery && !selectedPatientEmail) {
+      setSelectedPatientEmail(preselectedPatientFromQuery);
+    }
+  }, [isNutritionist, preselectedPatientFromQuery, selectedPatientEmail]);
 
   const { data: exerciseCatalog = [] } = useQuery({
     queryKey: ['exerciseCatalog'],
@@ -84,16 +112,30 @@ export default function RoutineBuilder() {
   const createRoutineMutation = useMutation({
     mutationFn: async (payload) => {
       const user = await appClient.auth.me();
+      const ownership = isNutritionist && selectedPatientEmail
+        ? {
+            user_id: selectedPatientEmail,
+            patient_id: selectedPatientEmail,
+            nutritionist_id: user.email,
+            created_by: user.email
+          }
+        : {
+            user_id: user.email,
+            created_by: user.email
+          };
       return appClient.entities.WorkoutRoutine.create({
-        user_id: user.email,
-        created_by: user.email,
+        ...ownership,
         ...payload,
         is_active: true
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workoutRoutines'] });
-      navigate(createPageUrl('WorkoutTracker'));
+      if (isNutritionist && selectedPatientEmail) {
+        navigate(createPageUrl('NutritionistDashboard'));
+      } else {
+        navigate(createPageUrl('WorkoutTracker'));
+      }
     },
     onError: (mutationError) => {
       setError(mutationError?.message || 'Não foi possível salvar a rotina.');
@@ -109,6 +151,10 @@ export default function RoutineBuilder() {
     }
     if (exercises.length === 0) {
       setError('Adicione pelo menos um exercício à rotina.');
+      return;
+    }
+    if (isNutritionist && !selectedPatientEmail) {
+      setError('Selecione um paciente para atribuir o treino.');
       return;
     }
     createRoutineMutation.mutate({
@@ -132,10 +178,42 @@ export default function RoutineBuilder() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl shadow-md p-6"
         >
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Nova rotina</h1>
-          <p className="text-gray-500 mb-6">Crie uma rotina base para os próximos treinos.</p>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+            {isNutritionist ? 'Novo treino para paciente' : 'Nova rotina'}
+          </h1>
+          <p className="text-gray-500 mb-6">
+            {isNutritionist
+              ? 'Monte um treino e atribua ao paciente. Ele aparecerá no app dele automaticamente.'
+              : 'Crie uma rotina base para os próximos treinos.'}
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isNutritionist && (
+              <div>
+                <Label className="flex items-center gap-2">
+                  <User size={14} className="text-purple-500" />
+                  Atribuir a paciente
+                </Label>
+                <Select value={selectedPatientEmail} onValueChange={setSelectedPatientEmail}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder={activePatients.length === 0 ? 'Nenhum paciente vinculado ainda' : 'Selecione um paciente'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activePatients.map((p) => (
+                      <SelectItem key={p.id} value={p.email || p.created_by}>
+                        {p.first_name} {p.last_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {activePatients.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Aceite um pedido de paciente no Dashboard para liberar a atribuição.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <Label>Nome</Label>
               <Input

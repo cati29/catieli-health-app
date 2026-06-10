@@ -48,6 +48,24 @@ test.describe('Workout flow', () => {
     }
     await page.getByPlaceholder(/Treino A - Forca/i).fill('Treino QA E2E');
     await page.getByPlaceholder(/Objetivo, grupos musculares/i).fill('Teste automatizado');
+
+    // Open exercise picker and add the first exercise (validation now requires >=1)
+    await page.getByRole('button', { name: /^Adicionar exercício$/ }).first().click();
+    await page.waitForTimeout(1000);
+    const firstExercise = page.locator('[role="dialog"] button').filter({ hasText: /./ }).first();
+    if ((await firstExercise.count()) > 0) {
+      await firstExercise.click();
+      await page.waitForTimeout(300);
+    }
+    // Close picker (find close/X)
+    const closeBtn = page.locator('[role="dialog"] button[aria-label*="Close" i], [role="dialog"] button:has-text("Concluir"), [role="dialog"] button:has-text("Fechar")').first();
+    if ((await closeBtn.count()) > 0) {
+      await closeBtn.click();
+    } else {
+      await page.keyboard.press('Escape');
+    }
+    await page.waitForTimeout(400);
+
     await page.getByRole('button', { name: /^Salvar rotina$/ }).click();
     await page.waitForTimeout(3500);
     const s2 = await shot(page, 'workout-03-after-save');

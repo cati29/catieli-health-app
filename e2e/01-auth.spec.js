@@ -120,13 +120,28 @@ test.describe('Auth flow', () => {
 
     const confirmHeading = await page.getByRole('heading', { name: /Confirme seu email/i }).count();
     const hasError = (await page.locator('p.text-red-500').count()) > 0;
-    if (confirmHeading === 0 && !page.url().endsWith('/Home')) {
+    const errorText = hasError ? ((await page.locator('p.text-red-500').first().textContent()) || '') : '';
+    const isEnvLimit = /rate limit|muitas|aguarde|limite de emails|429|too many requests/i.test(errorText)
+      || ctx.requests.some((r) => /\b429\b/.test(r));
+
+    if (confirmHeading === 0 && !page.url().endsWith('/Home') && !isEnvLimit) {
       recordBug({
         flow: 'Auth', severity: hasError ? 'medium' : 'high',
         title: 'Register did not complete successfully',
-        description: `After clicking "Criar conta", expected confirmation screen or Home redirect. URL: ${page.url()}\nemail used: ${email}\npageerrors:\n${ctx.pageerrors.join('\n')}\nconsole errors:\n${ctx.errors.join('\n')}\nfailed requests:\n${ctx.requests.join('\n')}`,
+        description: `After clicking "Criar conta", expected confirmation screen or Home redirect. URL: ${page.url()}\nemail used: ${email}\nvisible error: ${errorText}\npageerrors:\n${ctx.pageerrors.join('\n')}\nconsole errors:\n${ctx.errors.join('\n')}\nfailed requests:\n${ctx.requests.join('\n')}`,
         screenshot: s2, page: 'Register',
       });
+    } else if (isEnvLimit) {
+      // Verify the translated PT message is shown (i.e. authErrors.js mapped it)
+      const goodTranslation = /muitas|aguarde|limite/i.test(errorText);
+      if (!goodTranslation) {
+        recordBug({
+          flow: 'Auth', severity: 'medium',
+          title: 'Register error not translated to PT',
+          description: `Supabase rate limit fired but the visible error is not translated to PT. Visible: "${errorText}".`,
+          screenshot: s2, page: 'Register',
+        });
+      }
     }
   });
 });

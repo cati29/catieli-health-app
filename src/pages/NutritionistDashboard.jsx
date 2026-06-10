@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { appClient } from '@/api/appClient';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { 
+import {
   Users, MessageCircle, TrendingUp, Search,
   Target, Clock, CheckCircle2,
-  Award, Download, BarChart3
+  Award, Download, BarChart3, Inbox, X, Check
 } from 'lucide-react';
+import { usePendingPatientRequests } from '@/hooks/useActivePatients';
 
 export default function NutritionistDashboard() {
+  const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGoal, setFilterGoal] = useState('all');
@@ -25,6 +27,21 @@ export default function NutritionistDashboard() {
     };
     fetchUser();
   }, []);
+
+  const { data: pendingRequestsFull = [] } = usePendingPatientRequests(!!currentUser);
+
+  const respondToRequestMutation = useMutation({
+    mutationFn: async ({ conversationId, accept }) => {
+      return appClient.entities.Conversation.update(conversationId, {
+        status: accept ? 'accepted' : 'closed'
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pendingPatientRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['activePatients'] });
+      queryClient.invalidateQueries({ queryKey: ['nutriConversations'] });
+    }
+  });
 
   // Fetch nutritionist profile
   const { data: profiles } = useQuery({
@@ -190,7 +207,7 @@ ${filteredPatients.map(p => `
               <div>
                 <h1 className="text-4xl font-bold mb-2">Dashboard Nutricionista</h1>
                 <p className="text-indigo-100">
-                  Ol\u00e1, {nutriProfile?.first_name}
+                  Olá, {nutriProfile?.first_name}
                 </p>
               </div>
               <Button
@@ -294,6 +311,77 @@ ${filteredPatients.map(p => `
             )}
           </motion.div>
         </div>
+
+        {/* Pending Requests */}
+        {pendingRequestsFull.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-white rounded-2xl shadow-lg p-6 border-2 border-amber-200"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Inbox className="text-amber-500" size={24} />
+                Pedidos Pendentes
+                <span className="px-2 py-0.5 text-sm bg-amber-100 text-amber-700 rounded-full">
+                  {pendingRequestsFull.length}
+                </span>
+              </h3>
+            </div>
+
+            <div className="space-y-3">
+              {pendingRequestsFull.map(({ conversation, patient }) => (
+                <div
+                  key={conversation.id}
+                  className="p-4 border border-amber-100 bg-amber-50/30 rounded-xl flex items-center gap-4"
+                >
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-amber-700 font-semibold">
+                      {patient?.first_name?.[0] || '?'}{patient?.last_name?.[0] || ''}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-800">
+                      {patient ? `${patient.first_name} ${patient.last_name}` : conversation.user_id}
+                    </h4>
+                    <p className="text-sm text-gray-500 truncate">
+                      {conversation.last_message || 'Sem mensagem inicial'}
+                    </p>
+                    {patient?.goal && (
+                      <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">
+                        {patient.goal === 'weight_loss' ? 'Emagrecimento'
+                          : patient.goal === 'weight_gain' ? 'Ganho de peso'
+                          : patient.goal === 'muscle_gain' ? 'Ganho de massa' : 'Saúde'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={() => respondToRequestMutation.mutate({ conversationId: conversation.id, accept: true })}
+                      disabled={respondToRequestMutation.isPending}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                    >
+                      <Check size={16} className="mr-1" />
+                      Aceitar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => respondToRequestMutation.mutate({ conversationId: conversation.id, accept: false })}
+                      disabled={respondToRequestMutation.isPending}
+                      className="border-red-200 text-red-600 hover:bg-red-50"
+                    >
+                      <X size={16} className="mr-1" />
+                      Recusar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Patient Management */}
         <motion.div

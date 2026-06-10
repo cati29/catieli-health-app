@@ -184,6 +184,102 @@
     --a11y-line-height: 1;
   }
 
+  html.theme-nutritionist {
+    --app-accent: #a855f7;
+    --app-accent-2: #7c3aed;
+    --app-header-start: #6d28d9;
+    --app-header-end: #a855f7;
+    --app-top-glow: rgba(168, 85, 247, 0.10);
+    --app-left-glow: rgba(124, 58, 237, 0.08);
+    --app-kpi-glow: rgba(168, 85, 247, 0.18);
+    --app-focus: #8b5cf6;
+  }
+  html.theme-nutritionist.dark {
+    --app-accent: #c084fc;
+    --app-accent-2: #a855f7;
+    --app-header-start: #4c1d95;
+    --app-header-end: #7c3aed;
+    --app-top-glow: rgba(192, 132, 252, 0.12);
+    --app-left-glow: rgba(168, 85, 247, 0.08);
+    --app-kpi-glow: rgba(192, 132, 252, 0.22);
+    --app-focus: #c4b5fd;
+  }
+
+  /* Tailwind utility overrides for the nutritionist theme — emerald/green/teal -> purple/violet */
+  html.theme-nutritionist .bg-emerald-50 { background-color: #faf5ff !important; }
+  html.theme-nutritionist .bg-emerald-100 { background-color: #f3e8ff !important; }
+  html.theme-nutritionist .bg-emerald-200 { background-color: #e9d5ff !important; }
+  html.theme-nutritionist .bg-emerald-200\/60 { background-color: rgba(233, 213, 255, 0.6) !important; }
+  html.theme-nutritionist .bg-emerald-300 { background-color: #d8b4fe !important; }
+  html.theme-nutritionist .bg-emerald-500 { background-color: #a855f7 !important; }
+  html.theme-nutritionist .bg-emerald-500\/15 { background-color: rgba(168, 85, 247, 0.15) !important; }
+  html.theme-nutritionist .bg-emerald-500\/20 { background-color: rgba(168, 85, 247, 0.2) !important; }
+  html.theme-nutritionist .bg-emerald-500\/30 { background-color: rgba(168, 85, 247, 0.3) !important; }
+  html.theme-nutritionist .bg-emerald-600 { background-color: #9333ea !important; }
+  html.theme-nutritionist .bg-emerald-700 { background-color: #7e22ce !important; }
+
+  html.theme-nutritionist .text-emerald-300 { color: #d8b4fe !important; }
+  html.theme-nutritionist .text-emerald-500 { color: #a855f7 !important; }
+  html.theme-nutritionist .text-emerald-600 { color: #9333ea !important; }
+  html.theme-nutritionist .text-emerald-700 { color: #7e22ce !important; }
+  html.theme-nutritionist .text-emerald-800 { color: #6b21a8 !important; }
+
+  html.theme-nutritionist .border-emerald-200 { border-color: #e9d5ff !important; }
+  html.theme-nutritionist .border-emerald-300 { border-color: #d8b4fe !important; }
+  html.theme-nutritionist .border-emerald-500 { border-color: #a855f7 !important; }
+
+  html.theme-nutritionist .from-emerald-500 { --tw-gradient-from: #a855f7 var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(168 85 247 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+  html.theme-nutritionist .from-emerald-600 { --tw-gradient-from: #9333ea var(--tw-gradient-from-position) !important; }
+  html.theme-nutritionist .to-emerald-500 { --tw-gradient-to: #a855f7 var(--tw-gradient-to-position) !important; }
+  html.theme-nutritionist .to-emerald-600 { --tw-gradient-to: #9333ea var(--tw-gradient-to-position) !important; }
+  html.theme-nutritionist .via-emerald-500 { --tw-gradient-via: #a855f7 var(--tw-gradient-via-position) !important; }
+
+  html.theme-nutritionist .bg-teal-50 { background-color: #f5f3ff !important; }
+  html.theme-nutritionist .bg-teal-100 { background-color: #ede9fe !important; }
+  html.theme-nutritionist .bg-teal-500 { background-color: #8b5cf6 !important; }
+  html.theme-nutritionist .bg-teal-600 { background-color: #7c3aed !important; }
+  html.theme-nutritionist .bg-teal-700 { background-color: #6d28d9 !important; }
+  html.theme-nutritionist .text-teal-500 { color: #8b5cf6 !important; }
+  html.theme-nutritionist .text-teal-600 { color: #7c3aed !important; }
+  html.theme-nutritionist .text-teal-700 { color: #6d28d9 !important; }
+  html.theme-nutritionist .border-teal-200 { border-color: #ddd6fe !important; }
+  html.theme-nutritionist .border-teal-500 { border-color: #8b5cf6 !important; }
+  html.theme-nutritionist .from-teal-500 { --tw-gradient-from: #8b5cf6 var(--tw-gradient-from-position) !important; }
+  html.theme-nutritionist .from-teal-600 { --tw-gradient-from: #7c3aed var(--tw-gradient-from-position) !important; }
+  html.theme-nutritionist .to-teal-500 { --tw-gradient-to: #8b5cf6 var(--tw-gradient-to-position) !important; }
+  html.theme-nutritionist .to-teal-600 { --tw-gradient-to: #7c3aed var(--tw-gradient-to-position) !important; }
+  html.theme-nutritionist .to-teal-700 { --tw-gradient-to: #6d28d9 var(--tw-gradient-to-position) !important; }
+
+  html.theme-nutritionist .bg-green-50 { background-color: #faf5ff !important; }
+  html.theme-nutritionist .bg-green-100 { background-color: #f3e8ff !important; }
+  html.theme-nutritionist .bg-green-200 { background-color: #e9d5ff !important; }
+  html.theme-nutritionist .bg-green-500 { background-color: #a855f7 !important; }
+  html.theme-nutritionist .bg-green-600 { background-color: #9333ea !important; }
+  html.theme-nutritionist .bg-green-700 { background-color: #7e22ce !important; }
+  html.theme-nutritionist .text-green-500 { color: #a855f7 !important; }
+  html.theme-nutritionist .text-green-600 { color: #9333ea !important; }
+  html.theme-nutritionist .text-green-700 { color: #7e22ce !important; }
+  html.theme-nutritionist .text-green-800 { color: #6b21a8 !important; }
+  html.theme-nutritionist .border-green-200 { border-color: #e9d5ff !important; }
+  html.theme-nutritionist .border-green-500 { border-color: #a855f7 !important; }
+  html.theme-nutritionist .from-green-500 { --tw-gradient-from: #a855f7 var(--tw-gradient-from-position) !important; }
+  html.theme-nutritionist .from-green-600 { --tw-gradient-from: #9333ea var(--tw-gradient-from-position) !important; }
+  html.theme-nutritionist .to-green-500 { --tw-gradient-to: #a855f7 var(--tw-gradient-to-position) !important; }
+  html.theme-nutritionist .to-green-600 { --tw-gradient-to: #9333ea var(--tw-gradient-to-position) !important; }
+
+  /* Lucide icons that explicitly use emerald/green stroke or fill via stroke- / fill- utilities */
+  html.theme-nutritionist .stroke-emerald-500 { stroke: #a855f7 !important; }
+  html.theme-nutritionist .stroke-emerald-600 { stroke: #9333ea !important; }
+  html.theme-nutritionist .fill-emerald-500 { fill: #a855f7 !important; }
+  html.theme-nutritionist .fill-emerald-100 { fill: #f3e8ff !important; }
+
+  /* Dark-mode variants used in code: dark:bg-emerald-500/* and dark:text-emerald-300 */
+  html.theme-nutritionist.dark .dark\:bg-emerald-500\/15 { background-color: rgba(192, 132, 252, 0.15) !important; }
+  html.theme-nutritionist.dark .dark\:bg-emerald-500\/20 { background-color: rgba(192, 132, 252, 0.2) !important; }
+  html.theme-nutritionist.dark .dark\:bg-emerald-500\/30 { background-color: rgba(192, 132, 252, 0.3) !important; }
+  html.theme-nutritionist.dark .dark\:text-emerald-300 { color: #d8b4fe !important; }
+  html.theme-nutritionist.dark .dark\:text-emerald-400 { color: #c084fc !important; }
+
   body,
   p, li, a, button, input, select, textarea, label, span, h1, h2, h3, h4, h5, h6 {
     letter-spacing: calc(var(--a11y-letter-spacing) + 0em);
@@ -264,7 +360,7 @@
     position: fixed;
     right: 1rem;
     bottom: 5.25rem;
-    z-index: 60;
+    z-index: 9000;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -304,15 +400,19 @@
   .acessibilidade-overlay {
     position: fixed;
     inset: 0;
-    z-index: 90;
+    z-index: 9100;
     display: flex;
     justify-content: flex-end;
+    pointer-events: none;
+  }
+  .acessibilidade-overlay > * {
+    pointer-events: auto;
   }
   .acessibilidade-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(2px);
+    background: transparent;
+    backdrop-filter: none;
     border: 0;
     cursor: pointer;
   }
@@ -324,7 +424,7 @@
     background: var(--app-surface);
     color: var(--app-ink);
     border-left: 1px solid var(--app-line);
-    box-shadow: var(--app-shadow-3);
+    box-shadow: -1px 0 0 var(--app-line);
     animation: acessibilidade-slide-in 220ms ease-out;
   }
   @keyframes acessibilidade-slide-in {

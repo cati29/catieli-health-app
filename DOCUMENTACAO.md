@@ -77,11 +77,17 @@ O Health App permite que usuários acompanhem hábitos saudáveis (água, alimen
 
 ```
 health-app/
-├── e2e/                    # Testes Playwright
-│   ├── auth.spec.js        # Login, Register, ForgotPassword
-│   ├── routing.spec.js     # Proteção de rotas
-│   ├── smoke.spec.js       # Smoke tests do bundle
-│   └── _helpers.js         # Helpers (screenshot, bug report)
+├── e2e/                          # Testes Playwright (9 specs / 44 testes)
+│   ├── 01-auth.spec.js           # Login, registro 5 passos, credenciais erradas
+│   ├── 02-nutrition.spec.js      # Buscar alimento, adicionar, persistir
+│   ├── 03-workout.spec.js        # Criar rotina, RoutineBuilder, histórico
+│   ├── 04-health-goals-water.spec.js # Botão +250ml, edição de metas, Achievements
+│   ├── 05-social.spec.js         # SocialFeed, Groups, Chat, Leaderboard, Plans
+│   ├── 06-nutritionist.spec.js   # Dashboard de nutricionista, atribuir metas
+│   ├── auth.spec.js              # Smoke de Login/Register/ForgotPassword
+│   ├── routing.spec.js           # Proteção de rotas (5 rotas privadas)
+│   ├── smoke.spec.js             # Bootstrap do bundle sem erros
+│   └── _helpers.js               # Helpers (screenshot, bug report)
 ├── scripts/
 │   └── supabase/
 │       ├── setupTables.js  # Cria tabelas detectadas no código
@@ -257,13 +263,24 @@ Aplicada por `scripts/supabase/migrations/20260223_001_hardening.sql`:
 
 ## 7. Testes automatizados
 
-Suíte E2E em **Playwright** com 3 specs:
+Suíte E2E em **Playwright** com **9 specs / 44 testes** divididos em dois grupos:
 
+### Specs sem credenciais (16 testes — rodam sempre)
 | Spec | Cobertura |
 |------|-----------|
 | `e2e/auth.spec.js` | Renderização de Login/Register, validação de campos obrigatórios, link de recuperação |
 | `e2e/routing.spec.js` | Proteção de rotas: 5 rotas privadas + raiz redirecionam para `/Login` |
 | `e2e/smoke.spec.js` | Bundle monta sem erros JS críticos; assets básicos renderizam |
+
+### Specs com credenciais reais (28 testes — exigem `e2e/.test-creds.json` apontando para Supabase de teste)
+| Spec | Cobertura |
+|------|-----------|
+| `e2e/01-auth.spec.js` | Login real, senha errada exibe erro, registro completo 5 passos |
+| `e2e/02-nutrition.spec.js` | Adicionar alimento via busca, persistência em FoodEntry + DailyNutrition |
+| `e2e/03-workout.spec.js` | Criar rotina via RoutineBuilder, listar em WorkoutTracker, histórico |
+| `e2e/04-health-goals-water.spec.js` | Botão +250ml atualiza contador, edita meta, Achievements, HealthData, Profile |
+| `e2e/05-social.spec.js` | 10 páginas sociais/auxiliares carregam sem erro (Chat, Groups, Plans, MealPlans, etc.) |
+| `e2e/06-nutritionist.spec.js` | Login como nutricionista, dashboard, atribuir meta a paciente |
 
 Helpers em `e2e/_helpers.js`:
 - `attachConsoleLogging` — captura `console.error`, `pageerror`, `requestfailed`, respostas 4xx/5xx.

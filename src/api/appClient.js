@@ -455,6 +455,22 @@ const entities = new Proxy({}, {
       },
 
       async create(data) {
+        // Nutricionista nao pode iniciar Conversation (regra de negocio: so o atleta inicia).
+        if (entityName === 'Conversation') {
+          try {
+            const session = await getSession();
+            const role = session?.user?.user_metadata?.role || session?.user?.app_metadata?.role;
+            if (role === 'nutritionist') {
+              const conflictError = new Error('Nutricionistas nao podem iniciar conversas. Aguarde o paciente entrar em contato.');
+              conflictError.code = 'NUTRITIONIST_CANNOT_INITIATE_CONVERSATION';
+              throw conflictError;
+            }
+          } catch (sessionError) {
+            if (sessionError?.code === 'NUTRITIONIST_CANNOT_INITIATE_CONVERSATION') throw sessionError;
+            // Sessao indisponivel -> deixa o fluxo seguir e errar mais a frente.
+          }
+        }
+
         const fallback = () => {
           const timestamp = nowIso();
           const item = {

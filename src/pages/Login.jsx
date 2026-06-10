@@ -19,17 +19,34 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const redirectTarget = useMemo(() => {
+  const fromUrlOverride = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const fromUrl = params.get('from_url');
-    if (!fromUrl) return createPageUrl('Home');
+    if (!fromUrl) return null;
     try {
       const parsed = new URL(fromUrl, window.location.origin);
       return `${parsed.pathname}${parsed.search}${parsed.hash}`;
     } catch {
-      return createPageUrl('Home');
+      return null;
     }
   }, [location.search]);
+
+  const resolveLandingPage = async (loginEmail) => {
+    if (fromUrlOverride) return fromUrlOverride;
+    try {
+      const profiles = await appClient.entities.UserProfile.filter(
+        { created_by: loginEmail },
+        '-created_date',
+        1
+      );
+      if (profiles?.[0]?.user_type === 'nutritionist') {
+        return createPageUrl('NutritionistDashboard');
+      }
+    } catch {
+      // fall through to Home
+    }
+    return createPageUrl('Home');
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -44,7 +61,8 @@ export default function Login() {
     try {
       await appClient.auth.login(email, password);
       await finalizePendingProfileIfAny(email);
-      navigate(redirectTarget, { replace: true });
+      const landing = await resolveLandingPage(email);
+      navigate(landing, { replace: true });
     } catch (authError) {
       setError(translateAuthError(authError, 'Não foi possível autenticar.'));
     } finally {

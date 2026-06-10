@@ -37,6 +37,7 @@ export default function Profile() {
 
   const profile = profiles?.[0];
   const profileId = profile?.id;
+  const isNutritionist = profile?.user_type === 'nutritionist';
   const weightHistory = Array.isArray(profile?.weight_history) ? profile.weight_history : [];
   const parseWeightInput = (value) => Number(String(value || '').replace(',', '.'));
   const parsedNewWeight = parseWeightInput(newWeight);
@@ -268,21 +269,29 @@ export default function Profile() {
             </h2>
           )}
 
-          {/* Level Badge */}
+          {/* Level / Role Badge */}
           <div className="flex justify-center mb-4">
-            <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
-              Nível {profile?.level || 1} ⬢ {profile?.xp || 0} XP
-            </span>
+            {isNutritionist ? (
+              <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                Nutricionista {profile?.crm_nutrition ? `• ${profile.crm_nutrition}` : ''}
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+                Nível {profile?.level || 1} ⬢ {profile?.xp || 0} XP
+              </span>
+            )}
           </div>
 
-          {/* Avatar */}
-          <div className="flex justify-center mb-6">
-            <AvatarEvolution 
-              level={profile?.level || 1} 
-              xp={profile?.xp || 0}
-              size="lg"
-            />
-          </div>
+          {/* Avatar (gamificacao - somente atleta) */}
+          {!isNutritionist && (
+            <div className="flex justify-center mb-6">
+              <AvatarEvolution
+                level={profile?.level || 1}
+                xp={profile?.xp || 0}
+                size="lg"
+              />
+            </div>
+          )}
 
           {/* Info Grid */}
           <div className="space-y-4">

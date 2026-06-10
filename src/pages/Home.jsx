@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { createPageUrl } from '@/utils';
 import {
   Activity,
   Apple,
@@ -31,6 +33,7 @@ import { ProgressionService, QuestService } from '@/components/services';
 
 export default function Home() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const today = format(new Date(), 'yyyy-MM-dd');
   const [xpAnimation, setXpAnimation] = useState(null);
   const [levelUpAnimation, setLevelUpAnimation] = useState(false);
@@ -47,6 +50,12 @@ export default function Home() {
   });
 
   const profile = profiles?.[0];
+
+  useEffect(() => {
+    if (profile?.user_type === 'nutritionist') {
+      navigate(createPageUrl('NutritionistDashboard'), { replace: true });
+    }
+  }, [profile?.user_type, navigate]);
 
   const { data: dailyGoals } = useQuery({
     queryKey: ['dailyGoal', today],
@@ -86,7 +95,17 @@ export default function Home() {
     initialData: []
   });
 
-  const calculateStreak = () => 7;
+  const { data: streakStats } = useQuery({
+    queryKey: ['userStats', profile?.id],
+    queryFn: async () => {
+      const user = await appClient.auth.me();
+      return AchievementSystem.calculateUserStats(user.email);
+    },
+    enabled: !!profile?.id,
+    staleTime: 30_000,
+    initialData: { streak: 0 }
+  });
+  const calculateStreak = () => streakStats?.streak ?? 0;
 
   const updateXPMutation = useMutation({
     onMutate: async (xpPayload) => {
@@ -486,6 +505,10 @@ export default function Home() {
       value: `${completedGoals}/${goalsConfig.length}`
     }
   ];
+
+  if (profile?.user_type === 'nutritionist') {
+    return null;
+  }
 
   return (
     <div className="app-shell">

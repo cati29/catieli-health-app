@@ -1,5 +1,5 @@
 import { Toaster } from "@/components/ui/toaster"
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
@@ -8,10 +8,11 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { createPageUrl } from '@/utils';
 import RealtimeQuerySync from '@/lib/RealtimeQuerySync';
+import Acessibilidade from '@/lib/Acessibilidade';
+import { appClient } from '@/api/appClient';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
-const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 const PUBLIC_PAGES = new Set(['Login', 'Register', 'ForgotPassword', 'ResetPassword']);
 const PUBLIC_PAGES_SKIP_AUTH_REDIRECT = new Set(['ForgotPassword', 'ResetPassword']);
 const homePath = createPageUrl('Home');
@@ -20,6 +21,32 @@ const loginPath = createPageUrl('Login');
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
+
+const RootRedirect = () => {
+  const { data: profiles = [], isPending } = useQuery({
+    queryKey: ['userProfile'],
+    queryFn: async () => {
+      try {
+        const isAuth = await appClient.auth.isAuthenticated();
+        if (!isAuth) return [];
+        const user = await appClient.auth.me();
+        return appClient.entities.UserProfile.filter({ created_by: user.email }, '-created_date', 1);
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 30_000
+  });
+  if (isPending) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  const isNutritionist = profiles?.[0]?.user_type === 'nutritionist';
+  return <Navigate to={createPageUrl(isNutritionist ? 'NutritionistDashboard' : (mainPageKey || 'Home'))} replace />;
+};
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, isAuthenticated } = useAuth();
@@ -38,13 +65,7 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/" element={
-        isAuthenticated ? (
-          <LayoutWrapper currentPageName={mainPageKey}>
-            <MainPage />
-          </LayoutWrapper>
-        ) : (
-          <Navigate to={loginRedirect} replace />
-        )
+        isAuthenticated ? <RootRedirect /> : <Navigate to={loginRedirect} replace />
       } />
       {Object.entries(Pages).map(([path, Page]) => (
         <Route
@@ -90,6 +111,7 @@ function App() {
           <RealtimeQuerySync />
           <AuthenticatedApp />
         </Router>
+        <Acessibilidade />
         <Toaster />
       </QueryClientProvider>
     </AuthProvider>

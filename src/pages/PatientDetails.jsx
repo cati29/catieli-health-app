@@ -83,11 +83,22 @@ export default function PatientDetails() {
   const { data: assignedGoals } = useQuery({
     queryKey: ['assignedGoals', patient?.created_by],
     queryFn: async () => {
-      return appClient.entities.PatientGoalAssignment.filter({ 
+      return appClient.entities.PatientGoalAssignment.filter({
         patient_id: patient.created_by,
-        nutritionist_id: currentUser.email 
+        nutritionist_id: currentUser.email
       });
     },
+    enabled: !!patient && !!currentUser,
+    initialData: []
+  });
+
+  // Fetch workouts atribuidos por esta nutri a este paciente
+  const { data: assignedWorkouts = [] } = useQuery({
+    queryKey: ['assignedWorkouts', patient?.email || patient?.created_by, currentUser?.email],
+    queryFn: () => appClient.entities.WorkoutRoutine.filter({
+      patient_id: patient.email || patient.created_by,
+      nutritionist_id: currentUser.email
+    }, '-created_date'),
     enabled: !!patient && !!currentUser,
     initialData: []
   });
@@ -408,6 +419,55 @@ Enviado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
             </div>
           </motion.div>
         )}
+
+        {/* Assigned Workouts */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="bg-white rounded-2xl shadow-lg p-6 mb-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <Dumbbell className="text-purple-500" size={20} />
+              Treinos Atribuídos
+            </h3>
+            <Link
+              to={`${createPageUrl('RoutineBuilder')}?patient_id=${encodeURIComponent(patient?.email || patient?.created_by || '')}`}
+            >
+              <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
+                <Plus size={16} className="mr-1" />
+                Novo treino
+              </Button>
+            </Link>
+          </div>
+
+          {assignedWorkouts.length === 0 ? (
+            <p className="text-center text-gray-400 py-4">Nenhum treino atribuído. Clique em "Novo treino" para criar um.</p>
+          ) : (
+            <div className="space-y-3">
+              {assignedWorkouts.map((routine) => (
+                <div key={routine.id} className="p-4 bg-gray-50 rounded-xl flex items-center justify-between">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-800 truncate">{routine.name}</p>
+                    <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                      <span>{routine.exercises?.length || 0} exercícios</span>
+                      <span>•</span>
+                      <span>{routine.duration_minutes || 0} min</span>
+                      <span>•</span>
+                      <span>{routine.days_per_week || 0}x/semana</span>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    routine.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {routine.is_active ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
 
         {/* Assigned Goals */}
         <motion.div

@@ -29,7 +29,6 @@ import Logo from '@/components/ui/Logo';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 import NotificationScheduler from '@/components/notifications/NotificationScheduler';
-import Acessibilidade from '@/lib/Acessibilidade';
 import { setA11y, useA11y } from '@/lib/a11y';
 
 const SIDEBAR_KEY = 'health-app-sidebar-collapsed';
@@ -93,14 +92,17 @@ export default function Layout({ children, currentPageName }) {
   }, [mobileMenuOpen]);
 
   const profile = cachedProfiles?.[0] || null;
+  const isNutritionistTheme = profile?.user_type === 'nutritionist';
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-nutritionist', isNutritionistTheme);
+    return () => {
+      document.documentElement.classList.remove('theme-nutritionist');
+    };
+  }, [isNutritionistTheme]);
   const authPages = ['Login', 'Register', 'ForgotPassword', 'ResetPassword'];
   if (authPages.includes(currentPageName)) {
-    return (
-      <>
-        {children}
-        <Acessibilidade />
-      </>
-    );
+    return <>{children}</>;
   }
 
   const isNutritionist = profile?.user_type === 'nutritionist';
@@ -373,28 +375,32 @@ export default function Layout({ children, currentPageName }) {
                         <p className="text-sm font-semibold text-[var(--app-ink)] truncate">
                           {profile?.first_name} {profile?.last_name}
                         </p>
-                        <p className="text-xs text-[var(--app-subtle)]">
-                          Nível {profile?.level || 1} - {profile?.xp || 0} XP
+                        <p className="text-xs text-[var(--app-subtle)] truncate">
+                          {isNutritionist
+                            ? (profile?.crm_nutrition || 'Nutricionista')
+                            : `Nível ${profile?.level || 1} - ${profile?.xp || 0} XP`}
                         </p>
                       </>
                     )}
                   </div>
                 )}
-                {sidebarCollapsed && !profileLoading && (
+                {sidebarCollapsed && !profileLoading && !isNutritionist && (
                   <p className="text-[11px] text-[var(--app-subtle)]">Nv {profile?.level || 1}</p>
                 )}
               </div>
-              <div className={sidebarCollapsed ? 'mt-1.5' : 'mt-2.5'}>
-                <div className="h-1.5 bg-[var(--app-line)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-600"
-                    style={{ width: `${sidebarXpProgress}%` }}
-                  />
+              {!isNutritionist && (
+                <div className={sidebarCollapsed ? 'mt-1.5' : 'mt-2.5'}>
+                  <div className="h-1.5 bg-[var(--app-line)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-600"
+                      style={{ width: `${sidebarXpProgress}%` }}
+                    />
+                  </div>
+                  {!sidebarCollapsed && (
+                    <p className="text-[11px] text-[var(--app-subtle)] mt-1.5">{sidebarLevelXP}/100 XP no nível atual</p>
+                  )}
                 </div>
-                {!sidebarCollapsed && (
-                  <p className="text-[11px] text-[var(--app-subtle)] mt-1.5">{sidebarLevelXP}/100 XP no nível atual</p>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -467,11 +473,13 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </nav>
 
-          <div className="px-3 pb-4">
-            <div className="rounded-2xl border border-[var(--app-line)] bg-[var(--app-surface-soft)] px-3 py-3 text-xs text-[var(--app-subtle)]">
-              Nível {profile?.level || 1} - {profile?.xp || 0} XP
+          {!isNutritionist && (
+            <div className="px-3 pb-4">
+              <div className="rounded-2xl border border-[var(--app-line)] bg-[var(--app-surface-soft)] px-3 py-3 text-xs text-[var(--app-subtle)]">
+                Nível {profile?.level || 1} - {profile?.xp || 0} XP
+              </div>
             </div>
-          </div>
+          )}
         </aside>
       </div>
 
@@ -519,7 +527,6 @@ export default function Layout({ children, currentPageName }) {
           </ul>
         </div>
       </nav>
-      <Acessibilidade />
     </div>
   );
 }

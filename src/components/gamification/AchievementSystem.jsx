@@ -60,6 +60,8 @@ export const AchievementSystem = {
         return (stats.goalsCompleted || 0) >= badge.requirement_value;
       case 'water_total':
         return (stats.totalWater || 0) >= badge.requirement_value;
+      case 'daily_water_goal':
+        return (stats.dailyWaterGoalsReached || 0) >= badge.requirement_value;
       case 'workouts_completed':
         return (stats.workoutsCompleted || 0) >= badge.requirement_value;
       case 'weight_lost':
@@ -93,6 +95,9 @@ export const AchievementSystem = {
 
     const goalsCompleted = dailyGoals.filter((g) => g.completed).length;
     const totalWater = dailyGoals.reduce((sum, g) => sum + (g.water_consumed_ml || 0), 0);
+    const dailyWaterGoalsReached = dailyGoals.filter(
+      (g) => (g.water_consumed_ml || 0) >= (g.water_goal_ml || 2000)
+    ).length;
     const workoutsCompleted = workoutSessions.filter((w) => w.completed).length;
 
     const weightHistory = profile?.weight_history || [];
@@ -104,6 +109,7 @@ export const AchievementSystem = {
       streak,
       goalsCompleted,
       totalWater,
+      dailyWaterGoalsReached,
       workoutsCompleted,
       weightLost
     };
@@ -130,10 +136,15 @@ export const PredefinedBadges = [
   { name: 'Atleta', description: 'Complete 30 treinos', icon: '🏃', category: 'exercise', requirement_type: 'workouts_completed', requirement_value: 30, xp_reward: 300, rarity: 'epic' },
   { name: 'Campeão', description: 'Complete 100 treinos', icon: '🏆', category: 'exercise', requirement_type: 'workouts_completed', requirement_value: 100, xp_reward: 1000, rarity: 'legendary' },
 
-  // Hidratação
-  { name: 'Bem Hidratado', description: 'Beba 10L de água', icon: '💧', category: 'water', requirement_type: 'water_total', requirement_value: 10000, xp_reward: 50, rarity: 'common' },
-  { name: 'Mestre da Hidratação', description: 'Beba 50L de água', icon: '🌊', category: 'water', requirement_type: 'water_total', requirement_value: 50000, xp_reward: 150, rarity: 'rare' },
-  { name: 'Oceano Pessoal', description: 'Beba 100L de água', icon: '🚰', category: 'water', requirement_type: 'water_total', requirement_value: 100000, xp_reward: 300, rarity: 'epic' },
+  // Hidratação — meta diária (dispara assim que a meta do dia é atingida)
+  { name: 'Meta de Hidratação', description: 'Bata sua meta diária de água pela 1ª vez', icon: '💧', category: 'water', requirement_type: 'daily_water_goal', requirement_value: 1, xp_reward: 30, rarity: 'common' },
+  { name: 'Hidratação na Rotina', description: 'Bata sua meta diária de água em 7 dias', icon: '🚿', category: 'water', requirement_type: 'daily_water_goal', requirement_value: 7, xp_reward: 100, rarity: 'rare' },
+  { name: 'Hábito de Hidratação', description: 'Bata sua meta diária em 30 dias', icon: '🌊', category: 'water', requirement_type: 'daily_water_goal', requirement_value: 30, xp_reward: 300, rarity: 'epic' },
+
+  // Hidratação — acumulado (volume total)
+  { name: 'Bem Hidratado', description: 'Beba 10L de água no total', icon: '💦', category: 'water', requirement_type: 'water_total', requirement_value: 10000, xp_reward: 50, rarity: 'common' },
+  { name: 'Mestre da Hidratação', description: 'Beba 50L de água no total', icon: '🌊', category: 'water', requirement_type: 'water_total', requirement_value: 50000, xp_reward: 150, rarity: 'rare' },
+  { name: 'Oceano Pessoal', description: 'Beba 100L de água no total', icon: '🚰', category: 'water', requirement_type: 'water_total', requirement_value: 100000, xp_reward: 300, rarity: 'epic' },
 
   // Perda de peso
   { name: 'Primeiros Passos', description: 'Perca 2kg', icon: '🎯', category: 'weight_loss', requirement_type: 'weight_lost', requirement_value: 2, xp_reward: 100, rarity: 'common' },
