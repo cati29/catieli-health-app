@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { addDays, format, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Calendar,
@@ -48,6 +48,37 @@ export default function Goals() {
   });
 
   const todayGoal = goals?.[0];
+
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+  const weekEndStr = format(addDays(weekStart, 6), 'yyyy-MM-dd');
+
+  const { data: weekGoals = [] } = useQuery({
+    queryKey: ['dailyGoal', 'week', weekStartStr],
+    queryFn: async () => {
+      const user = await appClient.auth.me();
+      return appClient.entities.DailyGoal.filter({
+        created_by: user.email,
+        date: { gte: weekStartStr, lte: weekEndStr }
+      });
+    }
+  });
+
+  const isGoalCompleted = (goal) => {
+    if (!goal) return false;
+    const waterOk = (goal.water_consumed_ml || 0) >= (goal.water_goal_ml || 2000);
+    const caloriesOk = (goal.calories_consumed || 0) >= (goal.calorie_goal || 2000);
+    const exerciseOk = (goal.exercise_minutes_done || 0) >= (goal.exercise_minutes_goal || 30);
+    return waterOk && caloriesOk && exerciseOk;
+  };
+
+  const weekCompletion = weekDays.map((day) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const goal = weekGoals.find((g) => g.date === dayStr);
+    return { day, label: format(day, 'EEEEE', { locale: ptBR }).toUpperCase(), completed: isGoalCompleted(goal) };
+  });
+  const completedThisWeek = weekCompletion.filter((d) => d.completed).length;
 
   const updateGoalMutation = useMutation({
     mutationFn: async (data) => {
@@ -305,24 +336,21 @@ export default function Goals() {
           </div>
 
           <div className="grid grid-cols-7 gap-1.5">
-            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, idx) => {
-              const isActive = idx <= new Date().getDay();
-              return (
-                <div key={day + idx} className="text-center">
-                  <span className="text-xs opacity-80">{day}</span>
-                  <div className={`w-8 h-8 mx-auto mt-1 rounded-full flex items-center justify-center ${
-                    isActive ? 'bg-emerald-500/25' : 'bg-white/35 dark:bg-slate-500/20'
-                  }`}
-                  >
-                    {isActive && <Star size={13} />}
-                  </div>
+            {weekCompletion.map(({ day, label, completed }) => (
+              <div key={day.toISOString()} className="text-center">
+                <span className="text-xs opacity-80">{label}</span>
+                <div className={`w-8 h-8 mx-auto mt-1 rounded-full flex items-center justify-center ${
+                  completed ? 'bg-emerald-500/25' : 'bg-white/35 dark:bg-slate-500/20'
+                }`}
+                >
+                  {completed && <Star size={13} />}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
 
           <p className="text-sm mt-4">
-            Você concluiu <strong>{new Date().getDay() + 1} dias</strong> de metas nesta semana.
+            Você concluiu <strong>{completedThisWeek} {completedThisWeek === 1 ? 'dia' : 'dias'}</strong> de metas nesta semana.
           </p>
         </motion.div>
       </div>

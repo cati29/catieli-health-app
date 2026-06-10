@@ -662,6 +662,7 @@ export default function Home() {
                     <button
                       key={button.amount}
                       type="button"
+                      aria-label={button.label}
                       onClick={() => handleAddWater(button.amount, button.xp)}
                       className="saas-panel-soft p-3 text-left hover:shadow-[var(--app-shadow-2)] transition-shadow"
                     >

@@ -29,18 +29,22 @@ import Logo from '@/components/ui/Logo';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 import NotificationScheduler from '@/components/notifications/NotificationScheduler';
+import Acessibilidade from '@/lib/Acessibilidade';
+import { setA11y, useA11y } from '@/lib/a11y';
 
-const THEME_KEY = 'health-app-theme';
 const SIDEBAR_KEY = 'health-app-sidebar-collapsed';
 
 export default function Layout({ children, currentPageName }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
-  const [themeMode, setThemeMode] = useState('light');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
+  const a11y = useA11y();
+  const resolvedTheme = a11y.theme === 'system'
+    ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : a11y.theme;
+  const highContrast = a11y.highContrast;
 
-  const { data: cachedProfiles = [] } = useQuery({
+  const { data: cachedProfiles = [], isPending: profileLoading } = useQuery({
     queryKey: ['userProfile'],
     queryFn: async () => {
       try {
@@ -52,19 +56,8 @@ export default function Layout({ children, currentPageName }) {
         return [];
       }
     },
-    initialData: [],
-    staleTime: 5_000
+    staleTime: 30_000
   });
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem(THEME_KEY);
-    if (savedTheme === 'dark' || savedTheme === 'light') {
-      setThemeMode(savedTheme);
-      return;
-    }
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    setThemeMode(prefersDark ? 'dark' : 'light');
-  }, []);
 
   useEffect(() => {
     const savedSidebar = window.localStorage.getItem(SIDEBAR_KEY);
@@ -72,11 +65,6 @@ export default function Layout({ children, currentPageName }) {
       setSidebarCollapsed(savedSidebar === 'true');
     }
   }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(THEME_KEY, themeMode);
-    document.documentElement.classList.toggle('dark', themeMode === 'dark');
-  }, [themeMode]);
 
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_KEY, String(sidebarCollapsed));
@@ -105,8 +93,15 @@ export default function Layout({ children, currentPageName }) {
   }, [mobileMenuOpen]);
 
   const profile = cachedProfiles?.[0] || null;
-  const authPages = ['Login', 'Register', 'ForgotPassword'];
-  if (authPages.includes(currentPageName)) return <>{children}</>;
+  const authPages = ['Login', 'Register', 'ForgotPassword', 'ResetPassword'];
+  if (authPages.includes(currentPageName)) {
+    return (
+      <>
+        {children}
+        <Acessibilidade />
+      </>
+    );
+  }
 
   const isNutritionist = profile?.user_type === 'nutritionist';
 
@@ -159,32 +154,19 @@ export default function Layout({ children, currentPageName }) {
   const mobilePrimaryNav = navItems.slice(0, 4);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
-  const toggleContrast = () => setHighContrast((prev) => !prev);
-  const toggleTheme = () => setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const toggleContrast = () => setA11y({ highContrast: !highContrast });
+  const toggleTheme = () => setA11y({ theme: resolvedTheme === 'dark' ? 'light' : 'dark' });
 
   const sidebarLevelXP = (profile?.xp || 0) % 100;
   const sidebarXpProgress = Math.min(100, sidebarLevelXP);
 
-  const themeButtonLabel = themeMode === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro';
+  const themeButtonLabel = resolvedTheme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro';
   const contrastButtonLabel = highContrast ? 'Desativar alto contraste' : 'Ativar alto contraste';
   const sidebarButtonLabel = sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral';
 
   return (
     <div className={`min-h-screen ${highContrast ? 'high-contrast' : ''}`}>
       <a href="#main-content" className="skip-link">Pular para o conteúdo</a>
-
-      <style>{`
-        .high-contrast {
-          filter: contrast(1.18) saturate(1.08);
-        }
-        .high-contrast * {
-          border-color: #101010 !important;
-        }
-        .high-contrast .saas-nav-item.is-active {
-          background: #111 !important;
-          color: #fff !important;
-        }
-      `}</style>
 
       <NotificationCenter
         isOpen={notificationCenterOpen}
@@ -200,7 +182,7 @@ export default function Layout({ children, currentPageName }) {
           aria-label={themeButtonLabel}
           type="button"
         >
-          {themeMode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <button
           onClick={toggleContrast}
@@ -224,7 +206,7 @@ export default function Layout({ children, currentPageName }) {
               aria-label={themeButtonLabel}
               type="button"
             >
-              {themeMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              {resolvedTheme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <button
               onClick={toggleContrast}
@@ -369,7 +351,9 @@ export default function Layout({ children, currentPageName }) {
             <div className={`rounded-2xl border border-[var(--app-line)] bg-[var(--app-surface-soft)] ${sidebarCollapsed ? 'px-2 py-2.5' : 'px-3 py-3'}`}>
               <div className={`flex ${sidebarCollapsed ? 'flex-col items-center gap-2' : 'items-center gap-3'}`}>
                 <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center overflow-hidden">
-                  {profile?.photo_url ? (
+                  {profileLoading ? (
+                    <div className="w-full h-full bg-emerald-200/60 dark:bg-emerald-500/30 animate-pulse" />
+                  ) : profile?.photo_url ? (
                     <img src={profile.photo_url} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
@@ -379,15 +363,24 @@ export default function Layout({ children, currentPageName }) {
                 </div>
                 {!sidebarCollapsed && (
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[var(--app-ink)] truncate">
-                      {profile?.first_name} {profile?.last_name}
-                    </p>
-                    <p className="text-xs text-[var(--app-subtle)]">
-                      Nível {profile?.level || 1} - {profile?.xp || 0} XP
-                    </p>
+                    {profileLoading ? (
+                      <>
+                        <div className="h-3.5 w-24 rounded bg-[var(--app-line)] animate-pulse mb-1.5" />
+                        <div className="h-3 w-16 rounded bg-[var(--app-line)] animate-pulse" />
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-[var(--app-ink)] truncate">
+                          {profile?.first_name} {profile?.last_name}
+                        </p>
+                        <p className="text-xs text-[var(--app-subtle)]">
+                          Nível {profile?.level || 1} - {profile?.xp || 0} XP
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
-                {sidebarCollapsed && (
+                {sidebarCollapsed && !profileLoading && (
                   <p className="text-[11px] text-[var(--app-subtle)]">Nv {profile?.level || 1}</p>
                 )}
               </div>
@@ -526,6 +519,7 @@ export default function Layout({ children, currentPageName }) {
           </ul>
         </div>
       </nav>
+      <Acessibilidade />
     </div>
   );
 }

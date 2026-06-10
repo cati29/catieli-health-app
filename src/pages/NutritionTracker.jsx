@@ -74,6 +74,27 @@ export default function NutritionTracker() {
     initialData: null
   });
 
+  const syncDailyGoalCalories = async (userEmail, delta) => {
+    const existing = await appClient.entities.DailyGoal.filter({
+      created_by: userEmail,
+      date: selectedDate
+    });
+
+    if (existing[0]) {
+      const next = Math.max(0, (existing[0].calories_consumed || 0) + delta);
+      await appClient.entities.DailyGoal.update(existing[0].id, { calories_consumed: next });
+    } else if (delta > 0) {
+      await appClient.entities.DailyGoal.create({
+        user_id: userEmail,
+        date: selectedDate,
+        calories_consumed: delta,
+        water_goal_ml: 2000,
+        calorie_goal: 2000,
+        exercise_minutes_goal: 30
+      });
+    }
+  };
+
   const addFoodMutation = useMutation({
     mutationFn: async ({ food, qty, meal }) => {
       const user = await appClient.auth.me();
@@ -138,11 +159,15 @@ export default function NutritionTracker() {
         });
       }
 
+      await syncDailyGoalCalories(user.email, entry.calories);
+
       return entry;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['foodEntries', selectedDate] });
       queryClient.invalidateQueries({ queryKey: ['dailyNutrition', selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['dailyGoal', selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['dailyGoal'] });
       setShowAddDialog(false);
       setSelectedFood(null);
       setQuantity(100);
@@ -180,10 +205,14 @@ export default function NutritionTracker() {
           zinc_mg: Math.max(0, Number(((existing[0].zinc_mg || 0) - entry.zinc_mg).toFixed(2)))
         });
       }
+
+      await syncDailyGoalCalories(user.email, -entry.calories);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['foodEntries', selectedDate] });
       queryClient.invalidateQueries({ queryKey: ['dailyNutrition', selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['dailyGoal', selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['dailyGoal'] });
     }
   });
 

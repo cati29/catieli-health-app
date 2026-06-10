@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { appClient } from '@/api/appClient';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import {
   Dumbbell, Plus, Calendar, TrendingUp, Zap, Play,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 export default function WorkoutTracker() {
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
@@ -180,10 +181,21 @@ export default function WorkoutTracker() {
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
-              {routines.map((routine) => (
-                <Link key={routine.id} to={createPageUrl(`RoutineDetail?routineId=${routine.id}`)}>
+              {routines.map((routine) => {
+                const detailUrl = createPageUrl(`RoutineDetail?routineId=${routine.id}`);
+                return (
                   <motion.div
+                    key={routine.id}
                     whileHover={{ scale: 1.02 }}
+                    onClick={() => navigate(detailUrl)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(detailUrl);
+                      }
+                    }}
                     className="p-5 border border-slate-200 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer bg-white"
                   >
                     <div className="flex items-start justify-between mb-3">
@@ -205,14 +217,22 @@ export default function WorkoutTracker() {
                       <span>{routine.days_per_week || 0}x/semana</span>
                     </div>
                     <div className="mt-3">
-                      <Button size="sm" className="w-full bg-indigo-500 hover:bg-indigo-600">
+                      <Button
+                        size="sm"
+                        type="button"
+                        className="w-full bg-indigo-500 hover:bg-indigo-600"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate(`${detailUrl}&start=1`);
+                        }}
+                      >
                         <Play size={14} className="mr-2" />
                         Iniciar Treino
                       </Button>
                     </div>
                   </motion.div>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </motion.div>

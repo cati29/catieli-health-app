@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { appClient } from '@/api/appClient';
 import { createPageUrl } from '@/utils';
+import { translateAuthError } from '@/lib/authErrors';
 import Logo from '@/components/ui/Logo';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ export default function ForgotPassword() {
       await appClient.auth.requestPasswordReset(email);
       setSent(true);
     } catch (resetError) {
-      setError(resetError?.message || 'Não foi possível enviar o email de recuperação.');
+      setError(translateAuthError(resetError, 'Não foi possível enviar o email de recuperação.'));
     } finally {
       setLoading(false);
     }

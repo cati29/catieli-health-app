@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { translateAuthError } from '@/lib/authErrors';
 import { appClient } from '@/api/appClient';
 import Logo from '@/components/ui/Logo';
 import PasswordStrength from '@/components/auth/PasswordStrength';
@@ -180,7 +181,7 @@ export default function Register() {
 
       window.location.href = createPageUrl('Home');
     } catch (submitError) {
-      setError(submitError?.message || 'Não foi possível concluir o cadastro.');
+      setError(translateAuthError(submitError, 'Não foi possível concluir o cadastro.'));
     } finally {
       setLoading(false);
     }

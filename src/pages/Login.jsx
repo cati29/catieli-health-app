@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, Lock } from 'lucide-react';
 import { appClient } from '@/api/appClient';
 import { createPageUrl } from '@/utils';
+import { translateAuthError } from '@/lib/authErrors';
 import { PENDING_PROFILE_PREFIX } from '@/pages/Register';
 import Logo from '@/components/ui/Logo';
 import { Input } from '@/components/ui/input';
@@ -45,7 +46,7 @@ export default function Login() {
       await finalizePendingProfileIfAny(email);
       navigate(redirectTarget, { replace: true });
     } catch (authError) {
-      setError(authError?.message || 'Não foi possível autenticar.');
+      setError(translateAuthError(authError, 'Não foi possível autenticar.'));
     } finally {
       setLoading(false);
     }
