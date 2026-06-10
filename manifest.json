@@ -1,0 +1,9 @@
+{
+  "name": "Health App",
+  "short_name": "Health",
+  "description": "Aplicação de saúde e bem-estar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f8",
+  "theme_color": "#1aa56f"
+}
