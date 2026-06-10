@@ -19,6 +19,7 @@ import {
   Zap
 } from 'lucide-react';
 import { appClient } from '@/api/appClient';
+import { applyXpGain } from '@/lib/leveling';
 import AvatarCustomization from '@/components/avatar/AvatarCustomization';
 import { AchievementSystem } from '@/components/gamification/AchievementSystem';
 import HealthDataWidget from '@/components/health/HealthDataWidget';
@@ -115,14 +116,13 @@ export default function Home() {
 
       if (previousProfiles?.[0]) {
         const current = previousProfiles[0];
-        const optimisticXP = (current.xp || 0) + requestedXP;
-        const optimisticLevel = Math.floor(optimisticXP / 100) + 1;
+        const gain = applyXpGain(current.xp, requestedXP);
 
         queryClient.setQueryData(['userProfile'], [
           {
             ...current,
-            xp: optimisticXP,
-            level: optimisticLevel
+            xp: gain.newXp,
+            level: gain.newLevel
           },
           ...previousProfiles.slice(1)
         ]);
@@ -244,6 +244,9 @@ export default function Home() {
 
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       queryClient.invalidateQueries({ queryKey: ['activeMissions'] });
+      queryClient.invalidateQueries({ queryKey: ['streakStats'] });
+      queryClient.invalidateQueries({ queryKey: ['badges'] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
 
       if (data?.xpGranted > 0) {
         setXpAnimation({

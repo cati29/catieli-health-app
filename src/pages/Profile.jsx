@@ -12,11 +12,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import AvatarCustomization from '@/components/avatar/AvatarCustomization';
+import { supabase } from '@/lib/supabaseClient';
+import {
   User, Camera, Scale, Ruler, MapPin, Phone,
-  Calendar, Target, TrendingUp, Edit2, Save,
-  ChevronRight, LogOut, Watch, Shield, Eye, Users, Bell
+  Calendar, Target, TrendingUp, Edit2, Save, Mail, Lock, Palette,
+  ChevronRight, LogOut, Watch, Shield, Eye, EyeOff, Users, Bell
 } from 'lucide-react';
+
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
 
 export default function Profile() {
   const queryClient = useQueryClient();
@@ -25,6 +30,12 @@ export default function Profile() {
   const [newWeight, setNewWeight] = useState('');
   const [showWeightForm, setShowWeightForm] = useState(false);
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // Fetch profile
   const { data: profiles, isLoading } = useQuery({
@@ -138,6 +149,51 @@ export default function Profile() {
 
   const handleEditSave = () => {
     updateProfileMutation.mutate(editForm);
+  };
+
+  const handlePasswordSubmit = async () => {
+    setPasswordError('');
+    if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
+      setPasswordError('Preencha todos os campos.');
+      return;
+    }
+    if (passwordForm.next !== passwordForm.confirm) {
+      setPasswordError('A confirmação não bate com a nova senha.');
+      return;
+    }
+    if (!PASSWORD_REGEX.test(passwordForm.next)) {
+      setPasswordError('Nova senha precisa de 8+ caracteres, com maiúscula, minúscula, número e símbolo.');
+      return;
+    }
+    if (!supabase) {
+      setPasswordError('Serviço de autenticação indisponível.');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      // Verifica a senha atual reautenticando.
+      const email = profile?.email || profile?.created_by;
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email,
+        password: passwordForm.current
+      });
+      if (reauthError) {
+        setPasswordError('Senha atual incorreta.');
+        return;
+      }
+      const { error: updateError } = await supabase.auth.updateUser({ password: passwordForm.next });
+      if (updateError) {
+        setPasswordError(updateError.message || 'Falha ao atualizar a senha.');
+        return;
+      }
+      toast({ title: 'Senha atualizada', description: 'Sua nova senha já está valendo.' });
+      setShowPasswordDialog(false);
+      setPasswordForm({ current: '', next: '', confirm: '' });
+    } catch (err) {
+      setPasswordError(err?.message || 'Erro inesperado.');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   const handleConnectWearable = async (deviceType) => {
@@ -284,14 +340,35 @@ export default function Profile() {
 
           {/* Avatar (gamificacao - somente atleta) */}
           {!isNutritionist && (
-            <div className="flex justify-center mb-6">
+            <div className="flex flex-col items-center mb-6 gap-3">
               <AvatarEvolution
                 level={profile?.level || 1}
                 xp={profile?.xp || 0}
                 size="lg"
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAvatarDialog(true)}
+                className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+              >
+                <Palette size={14} className="mr-2" />
+                Customizar avatar
+              </Button>
             </div>
           )}
+
+          {/* Email (read-only) */}
+          <div className="mb-4">
+            <Label className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+              <Mail size={12} /> Email
+            </Label>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+              <span className="text-sm text-gray-700 truncate">{profile?.email || profile?.created_by || '—'}</span>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">O email não pode ser alterado.</p>
+          </div>
 
           {/* Info Grid */}
           <div className="space-y-4">
@@ -741,6 +818,23 @@ export default function Profile() {
           </motion.div>
         )}
 
+        {/* Trocar senha */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="mb-3"
+        >
+          <Button
+            variant="outline"
+            onClick={() => { setPasswordError(''); setShowPasswordDialog(true); }}
+            className="w-full"
+          >
+            <Lock size={18} className="mr-2" />
+            Trocar senha
+          </Button>
+        </motion.div>
+
         {/* Logout Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -757,6 +851,89 @@ export default function Profile() {
           </Button>
         </motion.div>
       </div>
+
+      {/* Avatar Customization Dialog */}
+      {!isNutritionist && (
+        <AvatarCustomization
+          profile={profile}
+          isOpen={showAvatarDialog}
+          onClose={() => setShowAvatarDialog(false)}
+        />
+      )}
+
+      {/* Trocar senha dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Trocar senha</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm">Senha atual</Label>
+              <div className="relative mt-1">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <Input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={passwordForm.current}
+                  onChange={(e) => { setPasswordForm({ ...passwordForm, current: e.target.value }); setPasswordError(''); }}
+                  className="pl-10 pr-10"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label="Mostrar/ocultar senhas"
+                >
+                  {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm">Nova senha</Label>
+              <div className="relative mt-1">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <Input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={passwordForm.next}
+                  onChange={(e) => { setPasswordForm({ ...passwordForm, next: e.target.value }); setPasswordError(''); }}
+                  className="pl-10"
+                  autoComplete="new-password"
+                />
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1">
+                Mínimo 8 caracteres, com maiúscula, minúscula, número e símbolo.
+              </p>
+            </div>
+            <div>
+              <Label className="text-sm">Confirme a nova senha</Label>
+              <div className="relative mt-1">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <Input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={passwordForm.confirm}
+                  onChange={(e) => { setPasswordForm({ ...passwordForm, confirm: e.target.value }); setPasswordError(''); }}
+                  className="pl-10"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            {passwordError && <p className="text-sm text-red-500">{passwordError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)} disabled={passwordLoading}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handlePasswordSubmit}
+              disabled={passwordLoading}
+              className="bg-emerald-500 hover:bg-emerald-600"
+            >
+              {passwordLoading ? 'Salvando...' : 'Salvar senha'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

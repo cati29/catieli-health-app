@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Crown, Palette, Shirt, User } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
 const createInitialCustomization = (profile) => ({
   skin_color: profile?.avatar_customization?.skin_color || 'amber-200',
@@ -53,13 +54,24 @@ export default function AvatarCustomization({ profile, isOpen, onClose }) {
 
   const updateAvatarMutation = useMutation({
     mutationFn: async () => {
+      if (!profile?.id) {
+        throw new Error('Perfil ainda não foi carregado. Tente novamente em alguns segundos.');
+      }
       await appClient.entities.UserProfile.update(profile.id, {
         avatar_customization: customization
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      toast({ title: 'Avatar atualizado', description: 'Sua personalização foi salva.' });
       onClose();
+    },
+    onError: (error) => {
+      toast({
+        title: 'Falha ao salvar avatar',
+        description: error?.message || 'Tente novamente em alguns segundos.',
+        variant: 'destructive'
+      });
     }
   });
 

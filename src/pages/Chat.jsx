@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
+import {
   Search, Phone, Video, MoreVertical, Send,
-  Circle, Check, CheckCheck
+  Circle, Check, CheckCheck, Hourglass
 } from 'lucide-react';
+import { hasSupabase, supabase } from '@/lib/supabaseClient';
 
 export default function Chat() {
   const queryClient = useQueryClient();
@@ -46,7 +47,8 @@ export default function Chat() {
       }
     },
     enabled: !!currentUser,
-    refetchInterval: 5000,
+    refetchInterval: 2000,
+    refetchOnWindowFocus: true,
     initialData: []
   });
 
@@ -66,13 +68,35 @@ export default function Chat() {
   // Fetch messages for selected conversation
   const { data: messages } = useQuery({
     queryKey: ['messages', selectedConversation?.id],
-    queryFn: () => appClient.entities.ChatMessage.filter({ 
-      conversation_id: selectedConversation.id 
+    queryFn: () => appClient.entities.ChatMessage.filter({
+      conversation_id: selectedConversation.id
     }, 'created_date'),
     enabled: !!selectedConversation,
-    refetchInterval: 3000,
+    refetchInterval: 1500,
+    refetchOnWindowFocus: true,
     initialData: []
   });
+
+  // Realtime: instant push from Postgres for chat tables
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !currentUser) return undefined;
+    const channelName = `chat-${currentUser.email}-${Math.random().toString(36).slice(2, 8)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_message' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['messages'] });
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['nutriConversations'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['nutriConversations'] });
+        queryClient.invalidateQueries({ queryKey: ['pendingPatientRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['activePatients'] });
+      });
+    channel.subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [currentUser, queryClient]);
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -134,15 +158,7 @@ export default function Chat() {
 
   const canSendMessage = () => {
     if (!selectedConversation) return false;
-    
-    if (isNutritionist) {
-      return selectedConversation.status === 'accepted';
-    } else {
-      if (selectedConversation.status === 'pending' && selectedConversation.user_messages_count === 0) {
-        return true;
-      }
-      return selectedConversation.status === 'accepted';
-    }
+    return selectedConversation.status === 'accepted';
   };
 
   const filteredConversations = conversations.filter(conv => {
@@ -315,13 +331,27 @@ export default function Chat() {
                     <Button
                       size="sm"
                       onClick={() => acceptConversationMutation.mutate(selectedConversation)}
+                      disabled={acceptConversationMutation.isPending}
                       className="bg-emerald-500 hover:bg-emerald-600 h-8"
                     >
-                      Aceitar
+                      {acceptConversationMutation.isPending ? 'Aceitando...' : 'Aceitar'}
                     </Button>
                     <Button size="sm" variant="outline" className="h-8">
                       Recusar
                     </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Waiting Banner (Athlete Only) */}
+              {!isNutritionist && selectedConversation.status === 'pending' && (
+                <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <Hourglass size={18} className="text-amber-600 animate-pulse" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-900">Aguardando aceitação da nutricionista</p>
+                    <p className="text-xs text-amber-700">Sua solicitação foi enviada. Você poderá conversar assim que a nutricionista aceitar.</p>
                   </div>
                 </div>
               )}
@@ -374,7 +404,11 @@ export default function Chat() {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                    placeholder="Digite sua mensagem..."
+                    placeholder={
+                      selectedConversation.status === 'pending'
+                        ? (isNutritionist ? 'Aceite a conversa para responder' : 'Aguardando aceitação...')
+                        : 'Digite sua mensagem...'
+                    }
                     disabled={!canSendMessage()}
                     className="flex-1 resize-none rounded-2xl bg-gray-50 border-0 focus:bg-white focus:ring-2 focus:ring-emerald-500 px-4 py-3"
                   />
@@ -392,12 +426,12 @@ export default function Chat() {
                 {/* Info Text */}
                 <p className="text-xs text-gray-400 text-center mt-3">
                   {isNutritionist ? (
-                    selectedConversation.status === 'pending' 
+                    selectedConversation.status === 'pending'
                       ? 'Aceite a conversa para começar a responder'
                       : 'Você pode enviar mensagens ilimitadas'
                   ) : (
                     selectedConversation.status === 'pending'
-                      ? 'Primeira mensagem gratuita ⬢ Plano Premium para mensagens ilimitadas'
+                      ? 'Aguardando a nutricionista aceitar a conversa...'
                       : 'Plano Premium ativo ⬢ Mensagens ilimitadas'
                   )}
                 </p>

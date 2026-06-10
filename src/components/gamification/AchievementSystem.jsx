@@ -1,5 +1,6 @@
 import { appClient } from '@/api/appClient';
 import { createNotification, NotificationTemplates } from '@/components/notifications/NotificationHelper';
+import { levelFromXp } from '@/lib/leveling';
 
 // Sistema de conquistas automático
 export const AchievementSystem = {
@@ -24,7 +25,7 @@ export const AchievementSystem = {
       });
 
       const newXP = (profile.xp || 0) + badge.xp_reward;
-      const newLevel = Math.floor(newXP / 100) + 1;
+      const newLevel = levelFromXp(newXP);
 
       await appClient.entities.UserProfile.update(profile.id, {
         xp: newXP,

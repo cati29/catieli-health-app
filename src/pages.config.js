@@ -60,6 +60,8 @@ import HealthData from './pages/HealthData';
 import Home from './pages/Home';
 import Leaderboard from './pages/Leaderboard';
 import MealPlans from './pages/MealPlans';
+import MealPlanEditor from './pages/MealPlanEditor';
+import PatientPlanBuilder from './pages/PatientPlanBuilder';
 import NotificationSettings from './pages/NotificationSettings';
 import NutritionTracker from './pages/NutritionTracker';
 import NutritionistDashboard from './pages/NutritionistDashboard';
@@ -95,6 +97,8 @@ export const PAGES = {
     "Home": Home,
     "Leaderboard": Leaderboard,
     "MealPlans": MealPlans,
+    "MealPlanEditor": MealPlanEditor,
+    "PatientPlanBuilder": PatientPlanBuilder,
     "NotificationSettings": NotificationSettings,
     "NutritionTracker": NutritionTracker,
     "NutritionistDashboard": NutritionistDashboard,

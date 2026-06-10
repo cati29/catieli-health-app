@@ -29,6 +29,7 @@ import Logo from '@/components/ui/Logo';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
 import NotificationScheduler from '@/components/notifications/NotificationScheduler';
+import { progressInLevel } from '@/lib/leveling';
 import { setA11y, useA11y } from '@/lib/a11y';
 
 const SIDEBAR_KEY = 'health-app-sidebar-collapsed';
@@ -159,8 +160,10 @@ export default function Layout({ children, currentPageName }) {
   const toggleContrast = () => setA11y({ highContrast: !highContrast });
   const toggleTheme = () => setA11y({ theme: resolvedTheme === 'dark' ? 'light' : 'dark' });
 
-  const sidebarLevelXP = (profile?.xp || 0) % 100;
-  const sidebarXpProgress = Math.min(100, sidebarLevelXP);
+  const levelInfo = progressInLevel(profile?.xp);
+  const sidebarLevelXP = levelInfo.xpInLevel;
+  const sidebarLevelSize = levelInfo.levelSize;
+  const sidebarXpProgress = levelInfo.progressPct;
 
   const themeButtonLabel = resolvedTheme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro';
   const contrastButtonLabel = highContrast ? 'Desativar alto contraste' : 'Ativar alto contraste';
@@ -397,7 +400,7 @@ export default function Layout({ children, currentPageName }) {
                     />
                   </div>
                   {!sidebarCollapsed && (
-                    <p className="text-[11px] text-[var(--app-subtle)] mt-1.5">{sidebarLevelXP}/100 XP no nível atual</p>
+                    <p className="text-[11px] text-[var(--app-subtle)] mt-1.5">{sidebarLevelXP}/{sidebarLevelSize} XP no nível atual</p>
                   )}
                 </div>
               )}

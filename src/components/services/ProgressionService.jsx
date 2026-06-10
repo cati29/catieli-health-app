@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { appClient } from '@/api/appClient';
+import { progressInLevel } from '@/lib/leveling';
 
 const MAX_LOG_ENTRIES = 150;
 
@@ -39,11 +40,11 @@ const getToday = () => format(new Date(), 'yyyy-MM-dd');
 const getSeasonId = (date = new Date()) => format(date, 'yyyy-MM');
 
 const getLevelFromXP = (xp) => {
-  const safeXP = Math.max(0, toInteger(xp, 0));
+  const info = progressInLevel(xp);
   return {
-    level: Math.floor(safeXP / 100) + 1,
-    xpInLevel: safeXP % 100,
-    xpToNextLevel: 100 - (safeXP % 100)
+    level: info.level,
+    xpInLevel: info.xpInLevel,
+    xpToNextLevel: info.xpToNext
   };
 };
 

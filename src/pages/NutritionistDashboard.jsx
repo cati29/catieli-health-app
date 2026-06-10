@@ -13,6 +13,7 @@ import {
   Award, Download, BarChart3, Inbox, X, Check
 } from 'lucide-react';
 import { usePendingPatientRequests } from '@/hooks/useActivePatients';
+import { hasSupabase, supabase } from '@/lib/supabaseClient';
 
 export default function NutritionistDashboard() {
   const queryClient = useQueryClient();
@@ -27,6 +28,26 @@ export default function NutritionistDashboard() {
     };
     fetchUser();
   }, []);
+
+  // Realtime: push de novas solicitações + mensagens para o dashboard da nutricionista
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !currentUser) return undefined;
+    const channelName = `nutri-dash-${currentUser.email}-${Math.random().toString(36).slice(2, 8)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['pendingPatientRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['activePatients'] });
+        queryClient.invalidateQueries({ queryKey: ['nutriConversations'] });
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_message' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['nutriConversations'] });
+        queryClient.invalidateQueries({ queryKey: ['messages'] });
+      });
+    channel.subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [currentUser, queryClient]);
 
   const { data: pendingRequestsFull = [] } = usePendingPatientRequests(!!currentUser);
 

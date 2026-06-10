@@ -12,10 +12,10 @@ import FeedbackForm from '@/components/nutritionist/FeedbackForm';
 import AssignPlanModal from '@/components/nutritionist/AssignPlanModal';
 import HealthDataWidget from '@/components/health/HealthDataWidget';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { 
+import {
   ArrowLeft, Target, Droplets, Flame, Dumbbell,
   TrendingUp, Calendar, MessageCircle, Scale, Plus,
-  Activity, Apple, Send
+  Activity, Apple, Send, Sparkles, Utensils
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -96,6 +96,17 @@ export default function PatientDetails() {
   const { data: assignedWorkouts = [] } = useQuery({
     queryKey: ['assignedWorkouts', patient?.email || patient?.created_by, currentUser?.email],
     queryFn: () => appClient.entities.WorkoutRoutine.filter({
+      patient_id: patient.email || patient.created_by,
+      nutritionist_id: currentUser.email
+    }, '-created_date'),
+    enabled: !!patient && !!currentUser,
+    initialData: []
+  });
+
+  // Fetch meal plans atribuídos por esta nutri a este paciente
+  const { data: assignedMealPlans = [] } = useQuery({
+    queryKey: ['assignedMealPlans', patient?.email || patient?.created_by, currentUser?.email],
+    queryFn: () => appClient.entities.MealPlan.filter({
       patient_id: patient.email || patient.created_by,
       nutritionist_id: currentUser.email
     }, '-created_date'),
@@ -420,6 +431,32 @@ Enviado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
           </motion.div>
         )}
 
+        {/* Bridge: Plano Assistido com IA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.32 }}
+          className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl shadow-lg p-6 mb-6"
+        >
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <Sparkles className="text-amber-600" size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-800">Gerar plano para o paciente</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Use IA (DeepSeek) para criar treinos e refeições personalizadas. Os planos vão direto para a conta do paciente — você pode editar a qualquer momento.
+              </p>
+            </div>
+          </div>
+          <Link to={`${createPageUrl('PatientPlanBuilder')}?patientId=${encodeURIComponent(patient.id)}`}>
+            <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-95 text-white font-semibold">
+              <Sparkles size={16} className="mr-2" />
+              Abrir planejador assistido
+            </Button>
+          </Link>
+        </motion.div>
+
         {/* Assigned Workouts */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -432,38 +469,106 @@ Enviado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
               <Dumbbell className="text-purple-500" size={20} />
               Treinos Atribuídos
             </h3>
-            <Link
-              to={`${createPageUrl('RoutineBuilder')}?patient_id=${encodeURIComponent(patient?.email || patient?.created_by || '')}`}
-            >
-              <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
-                <Plus size={16} className="mr-1" />
-                Novo treino
+            <div className="flex gap-2">
+              <Link to={`${createPageUrl('PatientPlanBuilder')}?patientId=${encodeURIComponent(patient.id)}`}>
+                <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                  <Sparkles size={14} className="mr-1" />
+                  IA
+                </Button>
+              </Link>
+              <Link
+                to={`${createPageUrl('RoutineBuilder')}?patient_id=${encodeURIComponent(patient?.email || patient?.created_by || '')}`}
+              >
+                <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
+                  <Plus size={16} className="mr-1" />
+                  Manual
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {assignedWorkouts.length === 0 ? (
+            <p className="text-center text-gray-400 py-4">Nenhum treino atribuído. Gere com IA ou crie manualmente.</p>
+          ) : (
+            <div className="space-y-3">
+              {assignedWorkouts.map((routine) => (
+                <Link
+                  key={routine.id}
+                  to={`${createPageUrl('RoutineDetail')}?routineId=${routine.id}`}
+                  className="block"
+                >
+                  <div className="p-4 bg-gray-50 rounded-xl flex items-center justify-between hover:bg-gray-100 transition-colors">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-800 truncate">{routine.name}</p>
+                      <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                        <span>{routine.exercises?.length || 0} exercícios</span>
+                        <span>•</span>
+                        <span>{routine.duration_minutes || 0} min</span>
+                        <span>•</span>
+                        <span>{routine.days_per_week || 0}x/semana</span>
+                      </div>
+                      {routine.created_by_ai && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full mt-2">
+                          <Sparkles size={11} />
+                          IA
+                        </span>
+                      )}
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      routine.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {routine.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Assigned Meal Plans */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.37 }}
+          className="bg-white rounded-2xl shadow-lg p-6 mb-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <Utensils className="text-emerald-500" size={20} />
+              Planos Alimentares
+            </h3>
+            <Link to={`${createPageUrl('PatientPlanBuilder')}?patientId=${encodeURIComponent(patient.id)}`}>
+              <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600">
+                <Sparkles size={14} className="mr-1" />
+                IA
               </Button>
             </Link>
           </div>
 
-          {assignedWorkouts.length === 0 ? (
-            <p className="text-center text-gray-400 py-4">Nenhum treino atribuído. Clique em "Novo treino" para criar um.</p>
+          {assignedMealPlans.length === 0 ? (
+            <p className="text-center text-gray-400 py-4">Nenhum plano alimentar atribuído.</p>
           ) : (
             <div className="space-y-3">
-              {assignedWorkouts.map((routine) => (
-                <div key={routine.id} className="p-4 bg-gray-50 rounded-xl flex items-center justify-between">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-gray-800 truncate">{routine.name}</p>
-                    <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-                      <span>{routine.exercises?.length || 0} exercícios</span>
-                      <span>•</span>
-                      <span>{routine.duration_minutes || 0} min</span>
-                      <span>•</span>
-                      <span>{routine.days_per_week || 0}x/semana</span>
-                    </div>
+              {assignedMealPlans.map((plan) => (
+                <Link
+                  key={plan.id}
+                  to={`${createPageUrl('MealPlanEditor')}?planId=${plan.id}`}
+                  className="block"
+                >
+                  <div className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                    <p className="font-semibold text-gray-800 truncate">{plan.title}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {plan.duration_days || 7} dias • {plan.total_calories_per_day || 0} kcal/dia
+                    </p>
+                    {plan.created_by_ai && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full mt-2">
+                        <Sparkles size={11} />
+                        IA
+                      </span>
+                    )}
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    routine.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {routine.is_active ? 'Ativo' : 'Inativo'}
-                  </span>
-                </div>
+                </Link>
               ))}
             </div>
           )}

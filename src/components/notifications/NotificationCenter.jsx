@@ -106,9 +106,9 @@ export default function NotificationCenter({ isOpen, onClose }) {
       case 'reminder':
         return <Bell className="text-blue-500" size={20} />;
       case 'achievement':
-        return <Trophy className="text-violet-500" size={20} />;
+        return <Trophy className="text-emerald-600" size={20} />;
       case 'level_up':
-        return <TrendingUp className="text-indigo-500" size={20} />;
+        return <TrendingUp className="text-teal-600" size={20} />;
       default:
         return <Bell className="text-gray-500" size={20} />;
     }

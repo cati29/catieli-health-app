@@ -219,6 +219,37 @@ const buildInitialQuestionnaireAnswers = (questions = []) =>
     return acc;
   }, {});
 
+const MEAL_TYPES = ['breakfast', 'lunch', 'snack', 'dinner'];
+
+const MEAL_TYPE_LABELS_PT = {
+  breakfast: 'café da manhã',
+  lunch: 'almoço',
+  snack: 'lanche',
+  dinner: 'jantar'
+};
+
+const buildFallbackMealsForDay = ({ dayNumber, targetCalories, goal }) => {
+  const distribution = { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 };
+  const proteinFactor = goal === 'muscle_gain' ? 0.35 : goal === 'weight_loss' ? 0.30 : 0.25;
+  const fatFactor = 0.25;
+  const carbFactor = 1 - proteinFactor - fatFactor;
+
+  return MEAL_TYPES.map((mealType) => {
+    const calories = Math.round((targetCalories || 2000) * distribution[mealType]);
+    return {
+      meal_type: mealType,
+      name: `Sugestão de ${MEAL_TYPE_LABELS_PT[mealType]} - Dia ${dayNumber}`,
+      ingredients: ['Ingredientes a definir — refaça a geração com IA quando possível'],
+      recipe: 'Plano base offline. Tente gerar novamente com IA pra receber receitas detalhadas.',
+      calories,
+      protein_g: Math.round((calories * proteinFactor) / 4),
+      carbs_g: Math.round((calories * carbFactor) / 4),
+      fat_g: Math.round((calories * fatFactor) / 9),
+      prep_time_minutes: mealType === 'snack' ? 5 : 25
+    };
+  });
+};
+
 export default function MealPlans() {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
@@ -226,6 +257,7 @@ export default function MealPlans() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [selectedDay, setSelectedDay] = useState(1);
   const [generating, setGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 7 });
   const [restrictions, setRestrictions] = useState('');
   const [useQuestionnaire, setUseQuestionnaire] = useState(false);
   const [questionnaireAnswers, setQuestionnaireAnswers] = useState({});
@@ -337,11 +369,12 @@ export default function MealPlans() {
     }
 
     setGenerating(true);
+    setGenerationProgress({ current: 0, total: 7 });
 
     try {
       const user = await appClient.auth.me();
 
-      // Calculate BMR and calories
+      // BMR + calorias-alvo
       const safeWeight = Number(profile.weight) || 70;
       const safeHeight = Number(profile.height) || 170;
       const safeAge = Number(profile.age) || 30;
@@ -358,87 +391,96 @@ export default function MealPlans() {
       }
 
       const questionnaireContext = buildQuestionnaireContext();
+      const restrictionsText = restrictions || 'nenhuma';
 
-      // Use AI to generate meal plan
-      const prompt = `
-Crie um plano alimentar semanal (7 dias) para:
-- Idade: ${safeAge} anos
-- Peso: ${safeWeight} kg
-- Altura: ${safeHeight} cm
-- Objetivo: ${goalLabel}
-- Calorias diárias: ${targetCalories} kcal
-- Restrições: ${restrictions || 'nenhuma'}
-- Geração com questionário: ${useQuestionnaire ? 'sim' : 'não'}
-
-Questionário personalizado (${goalLabel}):
-${questionnaireContext}
-
-Para cada dia, forneça 4 refeições (café da manhã, almoço, jantar, lanche) com:
-- Nome do prato
-- Lista de ingredientes
-- Modo de preparo detalhado
-- Valores nutricionais (calorias, proteínas, carboidratos, gorduras)
-- Tempo de preparo
-
-Se houver questionário, priorize essas respostas para personalizar o cardápio.
-Use ingredientes brasileiros comuns e versões praticas para rotina real.
-`;
-
-      const response = await appClient.integrations.Core.InvokeLLM({
-        prompt: prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            plan_title: { type: "string" },
-            days: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  day: { type: "number" },
-                  meals: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        meal_type: { type: "string" },
-                        name: { type: "string" },
-                        ingredients: {
-                          type: "array",
-                          items: { type: "string" }
-                        },
-                        recipe: { type: "string" },
-                        calories: { type: "number" },
-                        protein_g: { type: "number" },
-                        carbs_g: { type: "number" },
-                        fat_g: { type: "number" },
-                        prep_time_minutes: { type: "number" }
-                      }
-                    }
-                  }
-                }
-              }
+      // Schema reaproveitado para cada dia (resposta pequena -> não trunca)
+      const dayResponseSchema = {
+        type: 'object',
+        properties: {
+          day_title: { type: 'string' },
+          meals: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                meal_type: { type: 'string', enum: MEAL_TYPES },
+                name: { type: 'string' },
+                ingredients: { type: 'array', items: { type: 'string' } },
+                recipe: { type: 'string' },
+                calories: { type: 'number' },
+                protein_g: { type: 'number' },
+                carbs_g: { type: 'number' },
+                fat_g: { type: 'number' },
+                prep_time_minutes: { type: 'number' }
+              },
+              required: ['meal_type', 'name', 'ingredients', 'recipe', 'calories']
             }
           }
+        },
+        required: ['meals']
+      };
+
+      const requestDay = async (dayNumber) => {
+        const prompt = `
+Você é nutricionista. Gere as 4 refeições do DIA ${dayNumber} de um plano alimentar semanal.
+
+PERFIL:
+- Idade: ${safeAge} anos | Peso: ${safeWeight} kg | Altura: ${safeHeight} cm
+- Objetivo: ${goalLabel}
+- Calorias-alvo do dia: ${targetCalories} kcal
+- Restrições: ${restrictionsText}
+
+CONTEXTO PERSONALIZADO:
+${questionnaireContext}
+
+REGRAS:
+1. Retorne EXATAMENTE 4 refeições, nesta ordem e com estes meal_type: "breakfast", "lunch", "snack", "dinner".
+2. Use ingredientes brasileiros comuns (arroz, feijão, ovo, frango, banana, aveia, etc.).
+3. Receitas curtas e práticas (2 a 5 passos), modo de preparo direto em uma string.
+4. Cada refeição deve ter: name, ingredients (lista), recipe (texto), calories, protein_g, carbs_g, fat_g, prep_time_minutes.
+5. Soma das calorias do dia deve ficar próxima de ${targetCalories} kcal (±150 kcal).
+6. Varie os pratos em relação aos outros dias da semana (este é o dia ${dayNumber} de 7).
+7. NÃO retorne refeições vazias. Se faltar inspiração, sugira algo simples e nutritivo.
+`;
+
+        const response = await appClient.integrations.Core.InvokeLLM({
+          prompt,
+          response_json_schema: dayResponseSchema
+        });
+
+        const meals = Array.isArray(response?.meals) ? response.meals : [];
+        const validMeals = meals
+          .filter((m) => m && typeof m === 'object' && m.name)
+          .slice(0, 4);
+
+        if (validMeals.length >= 3) {
+          // Completa caso falte algum meal_type (até 4)
+          const present = new Set(validMeals.map((m) => m.meal_type));
+          const fallback = buildFallbackMealsForDay({
+            dayNumber, targetCalories, goal: profile.goal
+          });
+          const completed = [...validMeals];
+          for (const m of fallback) {
+            if (completed.length >= 4) break;
+            if (!present.has(m.meal_type)) {
+              completed.push(m);
+              present.add(m.meal_type);
+            }
+          }
+          return completed;
         }
-      });
 
-      if (!response || typeof response !== 'object') {
-        throw new Error('Resposta inválida da IA.');
-      }
+        // Fallback total se a IA não devolveu refeições válidas
+        return buildFallbackMealsForDay({ dayNumber, targetCalories, goal: profile.goal });
+      };
 
-      const generatedDays = Array.isArray(response.days) ? response.days : [];
-      if (generatedDays.length === 0) {
-        throw new Error('A IA não retornou um plano de refeições válido.');
-      }
-
-      // Create meal plan
+      // Cria primeiro o MealPlan pra termos o id (e mostramos algo no UI já)
       const mealPlan = await appClient.entities.MealPlan.create({
         user_id: user.email,
-        title: response.plan_title || 'Plano Semanal Personalizado',
+        title: `Plano de ${goalLabel} • ${safeAge} anos`,
         duration_days: 7,
         total_calories_per_day: targetCalories,
-        dietary_restrictions: restrictions ? restrictions.split(',').map(r => r.trim()) : [],
+        dietary_restrictions: restrictions ? restrictions.split(',').map((r) => r.trim()).filter(Boolean) : [],
         goal: profile.goal,
         questionnaire_enabled: useQuestionnaire,
         questionnaire_answers: useQuestionnaire ? questionnaireAnswers : {},
@@ -446,36 +488,68 @@ Use ingredientes brasileiros comuns e versões praticas para rotina real.
         is_active: true
       });
 
-      // Create meals
-      const mealPromises = generatedDays.flatMap(day =>
-        (Array.isArray(day.meals) ? day.meals : []).map(meal =>
-          appClient.entities.Meal.create({
-            meal_plan_id: mealPlan.id,
-            day_number: day.day || 1,
-            meal_type: meal.meal_type || 'lunch',
-            name: meal.name || 'Refeição sugerida',
-            recipe: meal.recipe || 'Sem modo de preparo informado.',
-            ingredients: Array.isArray(meal.ingredients) ? meal.ingredients : [],
-            calories: meal.calories || 0,
-            protein_g: meal.protein_g || 0,
-            carbs_g: meal.carbs_g || 0,
-            fat_g: meal.fat_g || 0,
-            prep_time_minutes: meal.prep_time_minutes || 30
-          })
-        )
-      );
+      // Gera dia 1...7 sequencialmente para evitar truncamento e mostrar progresso
+      let totalMealsCreated = 0;
+      let aiFailures = 0;
+      for (let dayNumber = 1; dayNumber <= 7; dayNumber += 1) {
+        setGenerationProgress({ current: dayNumber - 1, total: 7 });
+        let dayMeals;
+        try {
+          dayMeals = await requestDay(dayNumber);
+        } catch (dayError) {
+          console.warn(`Falha IA no dia ${dayNumber}, usando fallback`, dayError);
+          aiFailures += 1;
+          dayMeals = buildFallbackMealsForDay({
+            dayNumber, targetCalories, goal: profile.goal
+          });
+        }
 
-      await Promise.all(mealPromises);
+        await Promise.all(
+          dayMeals.map((meal) =>
+            appClient.entities.Meal.create({
+              meal_plan_id: mealPlan.id,
+              day_number: dayNumber,
+              meal_type: meal.meal_type || 'lunch',
+              name: meal.name || 'Refeição sugerida',
+              recipe: meal.recipe || 'Sem modo de preparo informado.',
+              ingredients: Array.isArray(meal.ingredients) ? meal.ingredients : [],
+              calories: Number(meal.calories) || 0,
+              protein_g: Number(meal.protein_g) || 0,
+              carbs_g: Number(meal.carbs_g) || 0,
+              fat_g: Number(meal.fat_g) || 0,
+              prep_time_minutes: Number(meal.prep_time_minutes) || 25
+            })
+          )
+        );
+        totalMealsCreated += dayMeals.length;
+        setGenerationProgress({ current: dayNumber, total: 7 });
+      }
 
       queryClient.invalidateQueries({ queryKey: ['mealPlans'] });
+      queryClient.invalidateQueries({ queryKey: ['meals', mealPlan.id] });
       setShowGenerator(false);
       setRestrictions('');
       setUseQuestionnaire(false);
       setSelectedPlan(mealPlan);
-      toast({
-        title: 'Plano gerado',
-        description: 'Seu plano semanal de refeições foi criado com sucesso.'
-      });
+      setSelectedDay(1);
+
+      if (aiFailures === 0) {
+        toast({
+          title: 'Plano gerado',
+          description: `7 dias • ${totalMealsCreated} refeições criadas pela IA.`
+        });
+      } else if (aiFailures < 7) {
+        toast({
+          title: 'Plano gerado (com fallback)',
+          description: `${aiFailures} dia(s) usaram plano base local — IA fora do ar nesses dias.`
+        });
+      } else {
+        toast({
+          title: 'IA indisponível, plano base criado',
+          description: 'Tente regenerar mais tarde para receitas personalizadas.',
+          variant: 'destructive'
+        });
+      }
     } catch (error) {
       console.error('Error generating meal plan:', error);
       toast({
@@ -485,6 +559,7 @@ Use ingredientes brasileiros comuns e versões praticas para rotina real.
       });
     } finally {
       setGenerating(false);
+      setGenerationProgress({ current: 0, total: 7 });
     }
   };
 
@@ -896,20 +971,30 @@ Use ingredientes brasileiros comuns e versões praticas para rotina real.
               {generating ? (
                 <>
                   <Loader2 size={18} className="mr-2 animate-spin" />
-                  Gerando plano...
+                  Gerando dia {Math.min(generationProgress.current + 1, generationProgress.total)} de {generationProgress.total}…
                 </>
               ) : (
                 <>
                   <Sparkles size={18} className="mr-2" />
-                  Gerar Plano (7 dias)
+                  Gerar Plano (7 dias com IA)
                 </>
               )}
             </Button>
 
             {generating && (
-              <p className="text-xs text-center text-gray-500">
-                Isso pode levar até 30 segundos...
-              </p>
+              <div className="space-y-2">
+                <div className="h-2 w-full rounded-full bg-orange-100 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500"
+                    style={{
+                      width: `${Math.round((generationProgress.current / generationProgress.total) * 100)}%`
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-center text-gray-500">
+                  A IA gera cada dia separadamente para garantir receitas completas. Pode levar até 1 minuto.
+                </p>
+              </div>
             )}
           </div>
         </DialogContent>
