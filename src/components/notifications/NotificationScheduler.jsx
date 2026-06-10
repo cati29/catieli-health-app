@@ -26,7 +26,7 @@ export default function NotificationScheduler({ profile }) {
         await createNotification(
           user.email,
           'reminder',
-          'x Hora de Hidratar!',
+          '💧 Hora de Hidratar!',
           'Não esqueça de beber água. Mantenha-se saudável!',
           '/Home',
           null,
@@ -47,7 +47,7 @@ export default function NotificationScheduler({ profile }) {
           await createNotification(
             user.email,
             'reminder',
-            'x} Lembrete de Metas',
+            '🎯 Lembrete de Metas',
             'Você ainda não completou suas metas de hoje. Que tal dar uma olhada?',
             '/Goals',
             null,

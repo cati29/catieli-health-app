@@ -1,10 +1,52 @@
 import { appClient } from '@/api/appClient';
 
+const LLM_TIMEOUT_MS = 60_000;
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('LLM_TIMEOUT')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 const safeString = (value, fallback = '') => (typeof value === 'string' && value.trim() ? value.trim() : fallback);
 const safeNumber = (value, fallback = 0) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 };
+
+function findExerciseInCatalog(catalog, name) {
+  if (!name) return null;
+  const norm = (s) =>
+    String(s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  const target = norm(name);
+  if (!target) return null;
+  let best = catalog.find((e) => norm(e?.name) === target);
+  if (best) return best;
+  best = catalog.find((e) => norm(e?.name).includes(target) || target.includes(norm(e?.name)));
+  if (best) return best;
+  const targetTokens = target.split(' ').filter((t) => t.length >= 4);
+  if (targetTokens.length === 0) return null;
+  return catalog.find((e) => {
+    const candidate = norm(e?.name);
+    return targetTokens.some((token) => candidate.includes(token));
+  }) || null;
+}
 
 function ownership({ targetEmail, nutritionistEmail }) {
   if (nutritionistEmail && nutritionistEmail !== targetEmail) {
@@ -103,39 +145,41 @@ INSTRUÇÕES:
 
     let response;
     try {
-      response = await appClient.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            weekly_plan: {
-              type: 'object',
-              properties: {
-                title: { type: 'string' },
-                description: { type: 'string' },
-                recovery_notes: { type: 'string' }
-              }
-            },
-            routines: {
-              type: 'array',
-              items: {
+      response = await withTimeout(
+        appClient.integrations.Core.InvokeLLM({
+          prompt,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              weekly_plan: {
                 type: 'object',
                 properties: {
-                  name: { type: 'string' },
-                  day_type: { type: 'string' },
+                  title: { type: 'string' },
                   description: { type: 'string' },
-                  focus_notes: { type: 'string' },
-                  duration_minutes: { type: 'number' },
-                  exercises: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        exercise_name: { type: 'string' },
-                        sets: { type: 'number' },
-                        reps: { type: 'number' },
-                        rest_seconds: { type: 'number' },
-                        intensity_note: { type: 'string' }
+                  recovery_notes: { type: 'string' }
+                }
+              },
+              routines: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    day_type: { type: 'string' },
+                    description: { type: 'string' },
+                    focus_notes: { type: 'string' },
+                    duration_minutes: { type: 'number' },
+                    exercises: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          exercise_name: { type: 'string' },
+                          sets: { type: 'number' },
+                          reps: { type: 'number' },
+                          rest_seconds: { type: 'number' },
+                          intensity_note: { type: 'string' }
+                        }
                       }
                     }
                   }
@@ -143,10 +187,14 @@ INSTRUÇÕES:
               }
             }
           }
-        }
-      });
+        }),
+        LLM_TIMEOUT_MS
+      );
     } catch (llmError) {
-      throw new Error(`Falha ao chamar a IA: ${llmError?.message || 'erro desconhecido'}`);
+      const isTimeout = llmError?.message === 'LLM_TIMEOUT';
+      throw new Error(isTimeout
+        ? 'A IA demorou mais de 60s para responder. Tente novamente.'
+        : `Falha ao chamar a IA: ${llmError?.message || 'erro desconhecido'}`);
     }
 
     const rawRoutines = Array.isArray(response?.routines) ? response.routines : [];
@@ -161,17 +209,14 @@ INSTRUÇÕES:
       nutritionistEmail ? `Plano gerado pela nutricionista ${nutritionistEmail} via IA.` : 'Plano gerado via IA.'
     );
 
-    const created = [];
-    for (const routine of rawRoutines) {
+    const payloads = rawRoutines.map((routine) => {
       const mappedExercises = (Array.isArray(routine.exercises) ? routine.exercises : []).map((ex) => {
         const exerciseName = safeString(ex?.exercise_name, 'Exercício');
-        const found = exercises.find(
-          (e) => String(e?.name || '').toLowerCase() === exerciseName.toLowerCase()
-        );
+        const found = findExerciseInCatalog(exercises, exerciseName);
         return {
           exercise_id: found?.id || '',
-          exercise_name: exerciseName,
-          name: exerciseName,
+          exercise_name: found?.name || exerciseName,
+          name: found?.name || exerciseName,
           muscle_group: found?.muscle_group || '',
           equipment: found?.equipment || '',
           sets: safeNumber(ex?.sets, 3),
@@ -181,7 +226,7 @@ INSTRUÇÕES:
         };
       });
 
-      const newRoutine = await appClient.entities.WorkoutRoutine.create({
+      return {
         ...own,
         name: safeString(routine.name, 'Treino IA'),
         description: safeString(routine.description, planDescription),
@@ -193,9 +238,17 @@ INSTRUÇÕES:
         is_active: true,
         created_by_ai: true,
         weekly_plan_title: planTitle,
-        weekly_plan_notes: safeString(response?.weekly_plan?.recovery_notes, '')
-      });
-      created.push(newRoutine);
+        weekly_plan_notes: safeString(response?.weekly_plan?.recovery_notes, ''),
+        assisted_notes: safeString(notes, '')
+      };
+    });
+
+    let created = [];
+    try {
+      created = await Promise.all(payloads.map((p) => appClient.entities.WorkoutRoutine.create(p)));
+    } catch (createError) {
+      await Promise.allSettled(created.map((r) => appClient.entities.WorkoutRoutine.delete(r.id)));
+      throw new Error(`Erro ao salvar plano: ${createError?.message || 'tente novamente'}`);
     }
 
     return { created, planTitle };
@@ -240,7 +293,8 @@ Para cada dia, forneça 4 refeições (café da manhã, almoço, jantar, lanche)
 
     let response;
     try {
-      response = await appClient.integrations.Core.InvokeLLM({
+      response = await withTimeout(
+        appClient.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: 'object',
@@ -274,9 +328,14 @@ Para cada dia, forneça 4 refeições (café da manhã, almoço, jantar, lanche)
             }
           }
         }
-      });
+      }),
+      LLM_TIMEOUT_MS
+    );
     } catch (llmError) {
-      throw new Error(`Falha ao chamar a IA: ${llmError?.message || 'erro desconhecido'}`);
+      const isTimeout = llmError?.message === 'LLM_TIMEOUT';
+      throw new Error(isTimeout
+        ? 'A IA demorou mais de 60s para responder. Tente novamente.'
+        : `Falha ao chamar a IA: ${llmError?.message || 'erro desconhecido'}`);
     }
 
     const generatedDays = Array.isArray(response?.days) ? response.days : [];
@@ -292,7 +351,9 @@ Para cada dia, forneça 4 refeições (café da manhã, almoço, jantar, lanche)
       title,
       duration_days: 7,
       total_calories_per_day: calories,
-      dietary_restrictions: restrictions ? restrictions.split(',').map((r) => r.trim()).filter(Boolean) : [],
+      dietary_restrictions: restrictions
+        ? restrictions.split(',').map((r) => r.trim().toLowerCase()).filter(Boolean)
+        : [],
       goal: targetProfile?.goal || 'health',
       start_date: new Date().toISOString().split('T')[0],
       is_active: true,
@@ -321,7 +382,19 @@ Para cada dia, forneça 4 refeições (café da manhã, almoço, jantar, lanche)
       );
     });
 
-    await Promise.all(mealPromises);
+    try {
+      await Promise.all(mealPromises);
+    } catch (mealError) {
+      // Rollback: remove o plano e as meals que conseguiram subir
+      try {
+        const created = await appClient.entities.Meal.filter({ meal_plan_id: mealPlan.id });
+        await Promise.allSettled(created.map((m) => appClient.entities.Meal.delete(m.id)));
+        await appClient.entities.MealPlan.delete(mealPlan.id);
+      } catch {
+        // best effort
+      }
+      throw new Error(`Erro ao salvar refeições: ${mealError?.message || 'tente novamente'}`);
+    }
 
     return { mealPlan, title, daysCreated: generatedDays.length };
   },

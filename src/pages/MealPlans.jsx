@@ -474,6 +474,21 @@ REGRAS:
         return buildFallbackMealsForDay({ dayNumber, targetCalories, goal: profile.goal });
       };
 
+      // Desativa planos ativos anteriores antes de criar o novo (apenas um pode estar ativo)
+      try {
+        const previousActive = await appClient.entities.MealPlan.filter({
+          user_id: user.email,
+          is_active: true
+        });
+        await Promise.allSettled(
+          (previousActive || []).map((p) =>
+            appClient.entities.MealPlan.update(p.id, { is_active: false })
+          )
+        );
+      } catch (deactivateError) {
+        console.warn('Falha ao desativar planos anteriores (seguindo mesmo assim)', deactivateError);
+      }
+
       // Cria primeiro o MealPlan pra termos o id (e mostramos algo no UI já)
       const mealPlan = await appClient.entities.MealPlan.create({
         user_id: user.email,
@@ -504,7 +519,7 @@ REGRAS:
           });
         }
 
-        await Promise.all(
+        const dayResults = await Promise.allSettled(
           dayMeals.map((meal) =>
             appClient.entities.Meal.create({
               meal_plan_id: mealPlan.id,
@@ -521,7 +536,12 @@ REGRAS:
             })
           )
         );
-        totalMealsCreated += dayMeals.length;
+        const daySucceeded = dayResults.filter((r) => r.status === 'fulfilled').length;
+        const dayFailed = dayResults.length - daySucceeded;
+        if (dayFailed > 0) {
+          console.warn(`Dia ${dayNumber}: ${dayFailed} refeição(ões) falharam ao salvar`);
+        }
+        totalMealsCreated += daySucceeded;
         setGenerationProgress({ current: dayNumber, total: 7 });
       }
 

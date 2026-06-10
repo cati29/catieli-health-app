@@ -71,8 +71,16 @@ export default function HealthData() {
     : 0;
   const totalDistance = healthData.reduce((sum, d) => sum + (d.distance_km || 0), 0).toFixed(1);
 
-  // Today's data
-  const today = healthData.find(d => d.date === format(new Date(), 'yyyy-MM-dd'));
+  // Today's data — normalize d.date because it may come back as ISO datetime
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const today = healthData.find((d) => {
+    if (!d?.date) return false;
+    try {
+      return format(new Date(d.date), 'yyyy-MM-dd') === todayStr;
+    } catch {
+      return String(d.date).startsWith(todayStr);
+    }
+  });
 
   const sleepQualityColors = {
     poor: 'text-red-600 bg-red-100',

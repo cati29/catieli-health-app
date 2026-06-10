@@ -113,5 +113,56 @@ export const NotificationTemplates = {
     title: 'Plano de Refeições Pronto!',
     message: `Seu plano "${planTitle}" foi gerado com sucesso!`,
     actionUrl: '/MealPlans'
+  }),
+
+  // ===== Comunicacao paciente <-> nutricionista =====
+
+  newPatientRequest: (patientName) => ({
+    type: 'patient_request',
+    title: 'Novo pedido de paciente',
+    message: `${patientName || 'Um paciente'} solicitou atendimento com você.`,
+    actionUrl: '/NutritionistDashboard'
+  }),
+
+  requestAccepted: (nutritionistName) => ({
+    type: 'request_accepted',
+    title: 'Sua solicitação foi aceita!',
+    message: `${nutritionistName || 'Sua nutricionista'} aceitou seu pedido. Você já pode trocar mensagens.`,
+    actionUrl: '/Chat'
+  }),
+
+  requestDeclined: (nutritionistName) => ({
+    type: 'request_declined',
+    title: 'Solicitação recusada',
+    message: `${nutritionistName || 'A nutricionista'} não pôde aceitar seu pedido agora. Você pode procurar outro profissional.`,
+    actionUrl: '/Nutritionists'
+  }),
+
+  workoutAssigned: (nutritionistName, routineName) => ({
+    type: 'workout_assigned',
+    title: 'Novo treino do seu nutricionista',
+    message: `${nutritionistName || 'Sua nutricionista'} criou o treino "${routineName || 'sem título'}" para você.`,
+    actionUrl: '/WorkoutTracker'
+  }),
+
+  mealPlanAssigned: (nutritionistName, planTitle) => ({
+    type: 'meal_plan_assigned',
+    title: 'Novo plano alimentar',
+    message: `${nutritionistName || 'Sua nutricionista'} atribuiu o plano "${planTitle || 'sem título'}" para você.`,
+    actionUrl: '/MealPlans'
+  }),
+
+  newPatientMessage: (patientName) => ({
+    type: 'patient_message',
+    title: 'Nova mensagem do paciente',
+    message: `${patientName || 'Um paciente'} enviou uma mensagem.`,
+    actionUrl: '/Chat'
+  }),
+
+  newNutritionistMessage: (nutritionistName) => ({
+    type: 'nutritionist_message',
+    title: 'Nova mensagem do nutricionista',
+    message: `${nutritionistName || 'Sua nutricionista'} enviou uma mensagem.`,
+    actionUrl: '/Chat'
   })
 };

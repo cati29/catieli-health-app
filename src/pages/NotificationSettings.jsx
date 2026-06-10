@@ -303,7 +303,7 @@ export default function NotificationSettings() {
         {/* Save Info */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
           <p className="text-sm text-blue-800">
-            S Suas preferências são salvas automaticamente
+            ✓ Suas preferências são salvas automaticamente
           </p>
         </div>
       </div>

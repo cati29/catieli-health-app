@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, Flame, Timer } from 'lucide-react';
+import { ArrowLeft, Flame, Timer } from 'lucide-react';
 import { appClient } from '@/api/appClient';
 import { createPageUrl } from '@/utils';
 import { Input } from '@/components/ui/input';
@@ -82,7 +82,6 @@ export default function WorkoutHistory() {
                   <div className="text-sm text-gray-600 space-y-1">
                     <p className="flex items-center gap-2"><Timer size={14} /> {session.duration_minutes || 0} min</p>
                     <p className="flex items-center gap-2"><Flame size={14} /> {session.calories_burned || 0} kcal</p>
-                    <p className="flex items-center gap-2"><CalendarDays size={14} /> {session.date}</p>
                   </div>
                 </div>
               </motion.div>

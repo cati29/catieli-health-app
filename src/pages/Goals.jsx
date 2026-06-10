@@ -24,6 +24,7 @@ export default function Goals() {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [editingGoal, setEditingGoal] = useState(null);
+  const [editValue, setEditValue] = useState('');
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
   const { data: profiles } = useQuery({
@@ -136,12 +137,17 @@ export default function Goals() {
   ];
 
   const handleSaveGoal = (goalType, value) => {
-    updateGoalMutation.mutate({ [goalType.goalField]: Number(value) });
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) return;
+    updateGoalMutation.mutate({ [goalType.goalField]: numericValue });
   };
 
   const changeDate = (days) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + days);
+    const todayMidnight = new Date();
+    todayMidnight.setHours(23, 59, 59, 999);
+    if (newDate > todayMidnight) return;
     setSelectedDate(newDate);
   };
 
@@ -271,7 +277,9 @@ export default function Goals() {
                           <Label className="text-sm text-[var(--app-subtle)]">Nova meta ({goalType.unit})</Label>
                           <Input
                             type="number"
-                            defaultValue={goalValue}
+                            min="1"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
                             id={`goal-${goalType.key}`}
                             className="mt-1 bg-[var(--app-surface)] border-[var(--app-line)]"
                           />
@@ -287,11 +295,9 @@ export default function Goals() {
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => {
-                              const input = document.getElementById(`goal-${goalType.key}`);
-                              handleSaveGoal(goalType, input?.value || goalValue);
-                            }}
-                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95"
+                            onClick={() => handleSaveGoal(goalType, editValue || goalValue)}
+                            disabled={editValue !== '' && (!Number.isFinite(Number(editValue)) || Number(editValue) <= 0)}
+                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 disabled:opacity-50"
                           >
                             Salvar
                           </Button>
@@ -300,7 +306,10 @@ export default function Goals() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setEditingGoal(goalType.key)}
+                        onClick={() => {
+                          setEditValue(String(goalValue));
+                          setEditingGoal(goalType.key);
+                        }}
                         className={`w-full py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
                           isComplete
                             ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/45 dark:bg-emerald-500/15 dark:text-emerald-300'

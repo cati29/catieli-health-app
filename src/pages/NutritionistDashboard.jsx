@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { usePendingPatientRequests } from '@/hooks/useActivePatients';
 import { hasSupabase, supabase } from '@/lib/supabaseClient';
+import { createNotification, NotificationTemplates } from '@/components/notifications/NotificationHelper';
 
 export default function NutritionistDashboard() {
   const queryClient = useQueryClient();
@@ -52,10 +53,25 @@ export default function NutritionistDashboard() {
   const { data: pendingRequestsFull = [] } = usePendingPatientRequests(!!currentUser);
 
   const respondToRequestMutation = useMutation({
-    mutationFn: async ({ conversationId, accept }) => {
-      return appClient.entities.Conversation.update(conversationId, {
+    mutationFn: async ({ conversationId, accept, patientEmail }) => {
+      const updated = await appClient.entities.Conversation.update(conversationId, {
         status: accept ? 'accepted' : 'closed'
       });
+      // Notifica paciente sobre aceite/recusa
+      try {
+        const me = await appClient.auth.me();
+        const myProfile = profiles?.[0];
+        const nutriName = myProfile ? `${myProfile.first_name || ''} ${myProfile.last_name || ''}`.trim() : me.email;
+        const tpl = accept
+          ? NotificationTemplates.requestAccepted(nutriName)
+          : NotificationTemplates.requestDeclined(nutriName);
+        if (patientEmail) {
+          await createNotification(patientEmail, tpl.type, tpl.title, tpl.message, tpl.actionUrl, { conversation_id: conversationId });
+        }
+      } catch (notifyError) {
+        console.warn('Falha ao notificar paciente', notifyError);
+      }
+      return updated;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pendingPatientRequests'] });
@@ -216,9 +232,9 @@ ${filteredPatients.map(p => `
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50/20 pb-20 md:pb-8">
+    <div className="app-shell min-h-screen bg-gradient-to-b from-slate-50 via-white to-[#f4f7f8] pb-20 md:pb-8">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+      <div className="module-header">
         <div className="max-w-7xl mx-auto px-6 py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -227,7 +243,7 @@ ${filteredPatients.map(p => `
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-4xl font-bold mb-2">Dashboard Nutricionista</h1>
-                <p className="text-indigo-100">
+                <p className="text-white/80">
                   Olá, {nutriProfile?.first_name}
                 </p>
               </div>
@@ -245,22 +261,22 @@ ${filteredPatients.map(p => `
               <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
                 <Users className="mb-2" size={24} />
                 <p className="text-3xl font-bold">{totalPatients}</p>
-                <p className="text-sm text-indigo-100">Pacientes Ativos</p>
+                <p className="text-sm text-white/80">Pacientes Ativos</p>
               </div>
               <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
                 <Target className="mb-2" size={24} />
                 <p className="text-3xl font-bold">{activeGoals}</p>
-                <p className="text-sm text-indigo-100">Metas Ativas</p>
+                <p className="text-sm text-white/80">Metas Ativas</p>
               </div>
               <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
                 <CheckCircle2 className="mb-2" size={24} />
                 <p className="text-3xl font-bold">{completedGoals}</p>
-                <p className="text-sm text-indigo-100">Metas Completas</p>
+                <p className="text-sm text-white/80">Metas Completas</p>
               </div>
               <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
                 <Clock className="mb-2" size={24} />
                 <p className="text-3xl font-bold">{pendingRequests.length}</p>
-                <p className="text-sm text-indigo-100">Pendentes</p>
+                <p className="text-sm text-white/80">Pendentes</p>
               </div>
             </div>
           </motion.div>
@@ -380,7 +396,7 @@ ${filteredPatients.map(p => `
                   <div className="flex gap-2 flex-shrink-0">
                     <Button
                       size="sm"
-                      onClick={() => respondToRequestMutation.mutate({ conversationId: conversation.id, accept: true })}
+                      onClick={() => respondToRequestMutation.mutate({ conversationId: conversation.id, accept: true, patientEmail: conversation.user_id })}
                       disabled={respondToRequestMutation.isPending}
                       className="bg-emerald-500 hover:bg-emerald-600 text-white"
                     >
@@ -390,7 +406,7 @@ ${filteredPatients.map(p => `
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => respondToRequestMutation.mutate({ conversationId: conversation.id, accept: false })}
+                      onClick={() => respondToRequestMutation.mutate({ conversationId: conversation.id, accept: false, patientEmail: conversation.user_id })}
                       disabled={respondToRequestMutation.isPending}
                       className="border-red-200 text-red-600 hover:bg-red-50"
                     >

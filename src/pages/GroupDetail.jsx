@@ -91,15 +91,15 @@ export default function GroupDetail() {
   if (!group) return <div className="p-8">Carregando...</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50/20 pb-20 md:pb-8">
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+    <div className="app-shell min-h-screen bg-gradient-to-b from-slate-50 via-white to-[#f4f7f8] pb-20 md:pb-8">
+      <div className="module-header">
         <div className="max-w-5xl mx-auto px-6 py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <h1 className="text-4xl font-bold mb-2">{group.name}</h1>
-            <p className="text-indigo-100 mb-4">{group.description}</p>
+            <p className="text-white/80 mb-4">{group.description}</p>
             <div className="flex items-center gap-4 text-sm">
               <span>{group.member_count || 0} membros</span>
               <span>|</span>

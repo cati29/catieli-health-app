@@ -11,6 +11,7 @@ import {
   Circle, Check, CheckCheck, Hourglass
 } from 'lucide-react';
 import { hasSupabase, supabase } from '@/lib/supabaseClient';
+import { createNotification, NotificationTemplates } from '@/components/notifications/NotificationHelper';
 
 export default function Chat() {
   const queryClient = useQueryClient();
@@ -47,7 +48,7 @@ export default function Chat() {
       }
     },
     enabled: !!currentUser,
-    refetchInterval: 2000,
+    refetchInterval: 12000, // realtime cobre a maior parte; polling apenas como safety net
     refetchOnWindowFocus: true,
     initialData: []
   });
@@ -72,7 +73,7 @@ export default function Chat() {
       conversation_id: selectedConversation.id
     }, 'created_date'),
     enabled: !!selectedConversation,
-    refetchInterval: 1500,
+    refetchInterval: 10000, // realtime push cuida do tempo real
     refetchOnWindowFocus: true,
     initialData: []
   });
@@ -124,6 +125,22 @@ export default function Chat() {
       }
 
       await appClient.entities.Conversation.update(selectedConversation.id, updateData);
+
+      // Notifica receiver (apenas em conversas accepted, para nao spammar a pending request)
+      if (selectedConversation.status === 'accepted') {
+        try {
+          const senderProfile = profiles?.[user.email];
+          const senderName = senderProfile
+            ? `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim()
+            : user.email;
+          const tpl = isNutritionist
+            ? NotificationTemplates.newNutritionistMessage(senderName)
+            : NotificationTemplates.newPatientMessage(senderName);
+          await createNotification(receiverId, tpl.type, tpl.title, tpl.message, tpl.actionUrl, { conversation_id: selectedConversation.id });
+        } catch (notifyError) {
+          console.warn('Falha ao notificar receiver da nova mensagem', notifyError);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation?.id] });
@@ -141,6 +158,18 @@ export default function Chat() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    }
+  });
+
+  // Reject conversation (nutritionist only)
+  const rejectConversationMutation = useMutation({
+    mutationFn: (conversation) => appClient.entities.Conversation.update(conversation.id, {
+      status: 'rejected',
+      __expected_updated_date: conversation.updated_date
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      setSelectedConversation(null);
     }
   });
 
@@ -336,8 +365,14 @@ export default function Chat() {
                     >
                       {acceptConversationMutation.isPending ? 'Aceitando...' : 'Aceitar'}
                     </Button>
-                    <Button size="sm" variant="outline" className="h-8">
-                      Recusar
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => rejectConversationMutation.mutate(selectedConversation)}
+                      disabled={rejectConversationMutation.isPending}
+                      className="h-8"
+                    >
+                      {rejectConversationMutation.isPending ? 'Recusando...' : 'Recusar'}
                     </Button>
                   </div>
                 </div>

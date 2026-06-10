@@ -105,7 +105,7 @@ export default function Groups() {
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold">Grupos de Apoio</h1>
-                  <p className="text-indigo-100">Conecte-se com pessoas como você</p>
+                  <p className="text-white/80">Conecte-se com pessoas como você</p>
                 </div>
               </div>
             </div>
@@ -154,7 +154,7 @@ export default function Groups() {
                 transition={{ delay: idx * 0.05 }}
                 className="surface-card overflow-hidden hover:shadow-md transition-all"
               >
-                <div className="relative h-32 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <div className="relative h-32 bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
                   {group.cover_image ? (
                     <img src={group.cover_image} alt="" className="w-full h-full object-cover" />
                   ) : (

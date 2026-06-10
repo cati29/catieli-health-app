@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { appClient } from '@/api/appClient';
 import { useQuery } from '@tanstack/react-query';
 import BadgeCard from '@/components/gamification/BadgeCard';
+import { AchievementSystem } from '@/components/gamification/AchievementSystem';
 import { Trophy, Star, Award, Filter, Droplets, Dumbbell, Apple, Flame } from 'lucide-react';
 
 export default function Achievements() {
@@ -49,6 +50,15 @@ export default function Achievements() {
   const profile = profiles?.[0];
   const unlockedBadgeIds = new Set(userBadges.map(ub => ub.badge_id));
 
+  // Real streak count (instead of hardcoded 7)
+  const { data: userStats } = useQuery({
+    queryKey: ['userStats', currentUser?.email],
+    queryFn: () => AchievementSystem.calculateUserStats(currentUser.email),
+    enabled: !!currentUser,
+    initialData: { streak: 0 },
+    staleTime: 30_000
+  });
+
   // Calculate progress for each badge
   const getBadgeProgress = (badge) => {
     if (!profile) return 0;
@@ -59,7 +69,7 @@ export default function Achievements() {
       case 'xp_earned':
         return profile.xp || 0;
       case 'streak_days':
-        return 7; // Simplified - would need streak calculation
+        return userStats?.streak || 0;
       default:
         return 0;
     }

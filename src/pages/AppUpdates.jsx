@@ -31,7 +31,7 @@ export default function AppUpdates() {
     major: { icon: Star, color: 'text-amber-500', bg: 'bg-amber-100' },
     minor: { icon: Sparkles, color: 'text-blue-500', bg: 'bg-blue-100' },
     patch: { icon: Bug, color: 'text-green-500', bg: 'bg-green-100' },
-    announcement: { icon: Megaphone, color: 'text-purple-500', bg: 'bg-purple-100' }
+    announcement: { icon: Megaphone, color: 'text-teal-600', bg: 'bg-teal-100' }
   };
 
   const typeLabels = {
@@ -42,9 +42,9 @@ export default function AppUpdates() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50/20 pb-20 md:pb-8">
+    <div className="app-shell min-h-screen bg-gradient-to-b from-slate-50 via-white to-[#f4f7f8] pb-20 md:pb-8">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+      <div className="module-header">
         <div className="max-w-4xl mx-auto px-6 py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -56,7 +56,7 @@ export default function AppUpdates() {
               </div>
               <div>
                 <h1 className="text-4xl font-bold">Novidades</h1>
-                <p className="text-indigo-100">Atualizações e melhorias do app</p>
+                <p className="text-white/80">Atualizações e melhorias do app</p>
               </div>
             </div>
           </motion.div>
@@ -67,8 +67,8 @@ export default function AppUpdates() {
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         {updates.length === 0 ? (
           <div className="text-center py-20">
-            <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="text-indigo-500" size={32} />
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="text-emerald-600" size={32} />
             </div>
             <h3 className="text-xl font-bold text-gray-800 mb-2">
               Nenhuma atualização ainda

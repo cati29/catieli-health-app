@@ -14,8 +14,14 @@ import { toast } from '@/components/ui/use-toast';
 const MEAL_LABELS = {
   breakfast: 'Café da manhã',
   lunch: 'Almoço',
-  dinner: 'Jantar',
-  snack: 'Lanche'
+  snack: 'Lanche',
+  dinner: 'Jantar'
+};
+
+const MEAL_ORDER = ['breakfast', 'lunch', 'snack', 'dinner'];
+const mealOrderIndex = (type) => {
+  const idx = MEAL_ORDER.indexOf(type);
+  return idx === -1 ? MEAL_ORDER.length : idx;
 };
 
 const MEAL_ICONS = {
@@ -43,10 +49,27 @@ export default function MealPlanEditor() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const planId = useMemo(() => new URLSearchParams(location.search).get('planId'), [location.search]);
+  const fromParam = useMemo(() => new URLSearchParams(location.search).get('from'), [location.search]);
 
   const [editingMealId, setEditingMealId] = useState(null);
   const [draft, setDraft] = useState(null);
   const [creatingDay, setCreatingDay] = useState(null);
+  const [authEmail, setAuthEmail] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const me = await appClient.auth.me();
+        if (active) setAuthEmail(me?.email || null);
+      } catch {
+        if (active) setAuthEmail(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const { data: currentProfile } = useQuery({
     queryKey: ['userProfile'],
@@ -72,7 +95,7 @@ export default function MealPlanEditor() {
       const rows = await appClient.entities.Meal.filter({ meal_plan_id: planId });
       return rows.sort((a, b) =>
         (a.day_number || 1) - (b.day_number || 1) ||
-        String(a.meal_type).localeCompare(String(b.meal_type))
+        mealOrderIndex(a.meal_type) - mealOrderIndex(b.meal_type)
       );
     },
     enabled: Boolean(planId),
@@ -82,12 +105,13 @@ export default function MealPlanEditor() {
   const isNutritionistOwner = Boolean(
     currentProfile?.user_type === 'nutritionist' &&
     plan?.nutritionist_id &&
-    plan.nutritionist_id === currentProfile?.email
+    authEmail &&
+    plan.nutritionist_id === authEmail
   );
   const isPatientOwner = Boolean(
     plan?.user_id &&
-    currentProfile?.email &&
-    plan.user_id === currentProfile.email
+    authEmail &&
+    plan.user_id === authEmail
   );
   const canEdit = isNutritionistOwner || (isPatientOwner && !plan?.nutritionist_id);
 
@@ -98,6 +122,13 @@ export default function MealPlanEditor() {
       setEditingMealId(null);
       setDraft(null);
       toast({ title: 'Refeição atualizada' });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Falha ao salvar',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive'
+      });
     }
   });
 
@@ -125,6 +156,13 @@ export default function MealPlanEditor() {
       setCreatingDay(null);
       setDraft(null);
       toast({ title: 'Refeição adicionada' });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Falha ao adicionar',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive'
+      });
     }
   });
 
@@ -133,6 +171,13 @@ export default function MealPlanEditor() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meals', planId] });
       toast({ title: 'Refeição removida' });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Falha ao remover',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive'
+      });
     }
   });
 
@@ -141,6 +186,13 @@ export default function MealPlanEditor() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mealPlan', planId] });
       toast({ title: 'Plano atualizado' });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Falha ao renomear',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive'
+      });
     }
   });
 
@@ -231,11 +283,16 @@ export default function MealPlanEditor() {
     );
   }
 
-  const backUrl = isNutritionistOwner && plan.patient_id
-    ? `${createPageUrl('PatientPlanBuilder')}?patientId=${encodeURIComponent(
-        plan.patient_profile_id || ''
-      )}`
-    : createPageUrl('MealPlans');
+  let backUrl;
+  if (fromParam?.startsWith('patient:')) {
+    backUrl = `${createPageUrl('PatientPlanBuilder')}?patientId=${encodeURIComponent(fromParam.slice(8))}`;
+  } else if (fromParam === 'patientDetails' && plan?.patient_id) {
+    backUrl = `${createPageUrl('PatientDetails')}?patientId=${encodeURIComponent(plan.patient_id)}`;
+  } else if (isNutritionistOwner) {
+    backUrl = createPageUrl('NutritionistDashboard');
+  } else {
+    backUrl = createPageUrl('MealPlans');
+  }
 
   const days = Array.from({ length: plan.duration_days || 7 }, (_, i) => i + 1);
   const mealsByDay = days.reduce((acc, day) => {

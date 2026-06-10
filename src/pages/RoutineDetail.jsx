@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -24,6 +24,23 @@ export default function RoutineDetail() {
   const [draft, setDraft] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const autoStartedRef = useRef(false);
+  const [authEmail, setAuthEmail] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const me = await appClient.auth.me();
+        if (active) setAuthEmail(me?.email || null);
+      } catch {
+        if (active) setAuthEmail(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const { data: routine, isLoading } = useQuery({
     queryKey: ['routineDetail', routineId],
@@ -64,12 +81,13 @@ export default function RoutineDetail() {
   const isNutritionistOwner = Boolean(
     currentProfile?.user_type === 'nutritionist' &&
     routine?.nutritionist_id &&
-    routine.nutritionist_id === currentProfile?.email
+    authEmail &&
+    routine.nutritionist_id === authEmail
   );
   const isPatientOwner = Boolean(
     routine?.user_id &&
-    currentProfile?.email &&
-    routine.user_id === currentProfile.email
+    authEmail &&
+    routine.user_id === authEmail
   );
   const canEdit = isNutritionistOwner || (isPatientOwner && !routine?.nutritionist_id);
 
@@ -91,13 +109,21 @@ export default function RoutineDetail() {
       queryClient.invalidateQueries({ queryKey: ['workoutSessions'] });
       queryClient.invalidateQueries({ queryKey: ['workoutHistory'] });
       navigate(createPageUrl('WorkoutHistory'));
+    },
+    onError: (err) => {
+      toast({
+        title: 'Falha ao iniciar treino',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive'
+      });
     }
   });
 
   useEffect(() => {
-    if (autoStart && routine && !isEditing && !startSessionMutation.isPending) {
-      startSessionMutation.mutate();
-    }
+    if (!autoStart || !routine || isEditing) return;
+    if (autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    startSessionMutation.mutate();
   }, [autoStart, routine, isEditing, startSessionMutation]);
 
   const updateMutation = useMutation({
@@ -430,6 +456,7 @@ export default function RoutineDetail() {
                 <Button
                   type="button"
                   variant="outline"
+                  aria-label="Remover rotina"
                   onClick={() => {
                     if (window.confirm('Remover esta rotina permanentemente?')) deleteMutation.mutate();
                   }}

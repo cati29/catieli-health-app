@@ -15,10 +15,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import {
   ArrowLeft, Target, Droplets, Flame, Dumbbell,
   TrendingUp, Calendar, MessageCircle, Scale, Plus,
-  Activity, Apple, Send, Sparkles, Utensils
+  Activity, Apple, Send, Sparkles, Utensils, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import jsPDF from 'jspdf';
 
 export default function PatientDetails() {
   const queryClient = useQueryClient();
@@ -124,10 +125,10 @@ export default function PatientDetails() {
 
       if (conversation[0]) {
         const feedbackMessage = `
-x9 FEEDBACK DO NUTRICIONISTA
+📝 FEEDBACK DO NUTRICIONISTA
 
 Tipo: ${feedbackData.type === 'nutrition' ? 'Nutrição' : feedbackData.type === 'exercise' ? 'Exercício' : 'Geral'}
-Tom: ${feedbackData.sentiment === 'positive' ? 'x Positivo' : 'x Construtivo'}
+Tom: ${feedbackData.sentiment === 'positive' ? '✅ Positivo' : '💡 Construtivo'}
 
 ${feedbackData.message}
 
@@ -201,6 +202,92 @@ Enviado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
     proteina: d.protein_g || 0
   }));
 
+  const exportPDF = () => {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 40;
+    let y = margin;
+
+    const writeLine = (text, opts = {}) => {
+      const size = opts.size || 11;
+      const isBold = opts.bold;
+      doc.setFontSize(size);
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+      const split = doc.splitTextToSize(text, pageWidth - margin * 2);
+      split.forEach((line) => {
+        if (y > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.text(line, margin, y);
+        y += size + 4;
+      });
+    };
+
+    const divider = () => {
+      doc.setDrawColor(200);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 12;
+    };
+
+    writeLine('Relatório do Paciente', { size: 18, bold: true });
+    writeLine(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
+    y += 6;
+    divider();
+
+    writeLine('Dados gerais', { size: 13, bold: true });
+    writeLine(`Nome: ${patient.first_name || ''} ${patient.last_name || ''}`);
+    writeLine(`Idade: ${patient.age || '—'} anos`);
+    writeLine(`Altura: ${patient.height || '—'} cm`);
+    writeLine(`Peso atual: ${patient.weight || '—'} kg`);
+    writeLine(`Objetivo: ${goalLabels[patient.goal] || patient.goal || '—'}`);
+    writeLine(`Nível: ${patient.level || 1} | XP: ${patient.xp || 0}`);
+    y += 6; divider();
+
+    writeLine('Histórico de peso (14 últimos registros)', { size: 13, bold: true });
+    if (weightChartData.length === 0) {
+      writeLine('Sem registros de peso.');
+    } else {
+      weightChartData.forEach((entry) => writeLine(`• ${entry.date}: ${entry.peso} kg`));
+    }
+    y += 6; divider();
+
+    writeLine('Metas atribuídas', { size: 13, bold: true });
+    if (!assignedGoals || assignedGoals.length === 0) {
+      writeLine('Nenhuma meta atribuída.');
+    } else {
+      assignedGoals.forEach((g) => writeLine(`• ${g.goal_title} — ${g.status} — ${g.progress || 0}%`));
+    }
+    y += 6; divider();
+
+    writeLine('Treinos atribuídos', { size: 13, bold: true });
+    if (!assignedWorkouts || assignedWorkouts.length === 0) {
+      writeLine('Nenhum treino atribuído.');
+    } else {
+      assignedWorkouts.forEach((r) => writeLine(`• ${r.name} — ${r.exercises?.length || 0} exercícios — ${r.is_active ? 'ativo' : 'inativo'}`));
+    }
+    y += 6; divider();
+
+    writeLine('Sessões de treino (últimas)', { size: 13, bold: true });
+    if (!workoutSessions || workoutSessions.length === 0) {
+      writeLine('Nenhuma sessão registrada.');
+    } else {
+      workoutSessions.slice(0, 10).forEach((s) =>
+        writeLine(`• ${format(new Date(s.date), 'dd/MM/yyyy')} — ${s.routine_name || 'Treino'} — ${s.duration_minutes || 0} min — ${s.calories_burned || 0} cal`)
+      );
+    }
+    y += 6; divider();
+
+    writeLine('Consumo nutricional (7 últimos)', { size: 13, bold: true });
+    if (!nutritionChartData || nutritionChartData.length === 0) {
+      writeLine('Sem dados nutricionais recentes.');
+    } else {
+      nutritionChartData.forEach((d) => writeLine(`• ${d.date}: ${Math.round(d.calorias)} kcal | proteína ${Math.round(d.proteina)} g`));
+    }
+
+    doc.save(`relatorio-${(patient.first_name || 'paciente').toLowerCase()}-${format(new Date(), 'yyyyMMdd')}.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-emerald-50/30 pb-24">
       {/* Header */}
@@ -213,7 +300,18 @@ Enviado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
             <ArrowLeft size={20} className="mr-2" />
             Voltar
           </Link>
-          <h1 className="text-white text-2xl font-bold">Detalhes do Paciente</h1>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-white text-2xl font-bold">Detalhes do Paciente</h1>
+            <Button
+              type="button"
+              size="sm"
+              onClick={exportPDF}
+              className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm"
+            >
+              <Download size={16} className="mr-2" />
+              Exportar PDF
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -402,7 +500,7 @@ Enviado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
           >
             <div className="flex items-center gap-2 mb-4">
               <Calendar className="text-emerald-500" size={20} />
-              <h3 className="font-bold text-gray-800">altimos 7 dias</h3>
+              <h3 className="font-bold text-gray-800">Últimos 7 dias</h3>
             </div>
 
             <div className="space-y-3">
@@ -455,6 +553,132 @@ Enviado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
               Abrir planejador assistido
             </Button>
           </Link>
+        </motion.div>
+
+        {/* Nutrition summary 7d */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.30 }}
+          className="bg-white rounded-2xl shadow-lg p-6 mb-6"
+        >
+          <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <Apple className="text-emerald-500" size={20} />
+            Nutrição — média 7 dias
+          </h3>
+          {nutritionData.length === 0 ? (
+            <p className="text-center text-gray-400 py-4">Sem dados nutricionais nos últimos 7 dias.</p>
+          ) : (() => {
+            const last7 = nutritionData.slice(0, 7);
+            const avg = (key) => Math.round(last7.reduce((s, d) => s + (d[key] || 0), 0) / last7.length);
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-emerald-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500">Calorias / dia</p>
+                  <p className="text-xl font-bold text-emerald-700">{avg('calories')} kcal</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500">Proteína / dia</p>
+                  <p className="text-xl font-bold text-blue-700">{avg('protein_g')} g</p>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500">Carbs / dia</p>
+                  <p className="text-xl font-bold text-amber-700">{avg('carbs_g')} g</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500">Gorduras / dia</p>
+                  <p className="text-xl font-bold text-purple-700">{avg('fat_g')} g</p>
+                </div>
+              </div>
+            );
+          })()}
+        </motion.div>
+
+        {/* Wearable status */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.32 }}
+          className="bg-white rounded-2xl shadow-lg p-6 mb-6"
+        >
+          <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <Activity className="text-indigo-500" size={20} />
+            Wearable & Saúde
+          </h3>
+          {(() => {
+            const connected = !!patient.wearable_data?.connected;
+            const lastSync = patient.wearable_data?.last_sync;
+            const avgSteps = healthData.length
+              ? Math.round(healthData.reduce((s, d) => s + (d.steps || 0), 0) / healthData.length)
+              : 0;
+            const avgHR = healthData.length
+              ? Math.round(healthData.reduce((s, d) => s + (d.heart_rate || 0), 0) / healthData.length)
+              : 0;
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className={`rounded-xl p-3 ${connected ? 'bg-emerald-50' : 'bg-gray-100'}`}>
+                  <p className="text-xs text-gray-500">Status</p>
+                  <p className={`text-sm font-bold ${connected ? 'text-emerald-700' : 'text-gray-600'}`}>
+                    {connected ? 'Conectado' : 'Desconectado'}
+                  </p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500">Passos médios (7d)</p>
+                  <p className="text-xl font-bold text-blue-700">{avgSteps}</p>
+                </div>
+                <div className="bg-rose-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500">FC média</p>
+                  <p className="text-xl font-bold text-rose-700">{avgHR || '—'} bpm</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3 col-span-2 md:col-span-3">
+                  <p className="text-xs text-gray-500">Última sincronização</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {lastSync ? format(new Date(lastSync), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : 'Nunca'}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+        </motion.div>
+
+        {/* Workout adherence */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.34 }}
+          className="bg-white rounded-2xl shadow-lg p-6 mb-6"
+        >
+          <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <TrendingUp className="text-purple-500" size={20} />
+            Aderência aos treinos (14d)
+          </h3>
+          {(() => {
+            if (assignedWorkouts.length === 0) {
+              return <p className="text-center text-gray-400 py-2">Nenhum treino atribuído.</p>;
+            }
+            const expectedPerWeek = assignedWorkouts.reduce((s, r) => s + (r.days_per_week || 0), 0);
+            const expected14d = Math.max(1, expectedPerWeek * 2);
+            const completed14d = workoutSessions.filter((s) => {
+              const date = new Date(s.date);
+              const cutoff = new Date();
+              cutoff.setDate(cutoff.getDate() - 14);
+              return date >= cutoff;
+            }).length;
+            const pct = Math.min(100, Math.round((completed14d / expected14d) * 100));
+            const barColor = pct >= 75 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
+            const textColor = pct >= 75 ? 'text-emerald-600' : pct >= 40 ? 'text-amber-600' : 'text-red-600';
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-600">{completed14d} sessões / {expected14d} esperadas</span>
+                  <span className={`text-sm font-bold ${textColor}`}>{pct}%</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                  <div className={`${barColor} h-full rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })()}
         </motion.div>
 
         {/* Assigned Workouts */}
@@ -553,7 +777,7 @@ Enviado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
               {assignedMealPlans.map((plan) => (
                 <Link
                   key={plan.id}
-                  to={`${createPageUrl('MealPlanEditor')}?planId=${plan.id}`}
+                  to={`${createPageUrl('MealPlanEditor')}?planId=${plan.id}&from=patient:${encodeURIComponent(patient.id)}`}
                   className="block"
                 >
                   <div className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">

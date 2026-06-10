@@ -85,7 +85,7 @@ export default function PatientGoalManager() {
       await createNotification(
         selectedPatient,
         'achievement',
-        'x} Nova Meta Atribuída!',
+        '🎯 Nova Meta Atribuída!',
         `Seu nutricionista atribuiu uma nova meta: ${goalData.goal_title}`,
         '/Goals',
         null,

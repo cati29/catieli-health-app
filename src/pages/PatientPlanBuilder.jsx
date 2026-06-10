@@ -140,18 +140,36 @@ export default function PatientPlanBuilder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patientWorkouts'] });
       toast({ title: 'Treino removido' });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Falha ao remover treino',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive'
+      });
     }
   });
 
   const deleteMealPlanMutation = useMutation({
     mutationFn: async (planId) => {
       const meals = await appClient.entities.Meal.filter({ meal_plan_id: planId });
-      await Promise.all(meals.map((m) => appClient.entities.Meal.delete(m.id)));
+      const results = await Promise.allSettled(meals.map((m) => appClient.entities.Meal.delete(m.id)));
+      const failed = results.filter((r) => r.status === 'rejected');
+      if (failed.length > 0) {
+        throw new Error(`${failed.length} refeição(ões) não puderam ser removidas. Plano mantido.`);
+      }
       await appClient.entities.MealPlan.delete(planId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patientMealPlans'] });
       toast({ title: 'Plano alimentar removido' });
+    },
+    onError: (err) => {
+      toast({
+        title: 'Falha ao remover plano',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive'
+      });
     }
   });
 
@@ -463,7 +481,7 @@ export default function PatientPlanBuilder() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <Link to={`${createPageUrl('MealPlanEditor')}?planId=${plan.id}`}>
+                        <Link to={`${createPageUrl('MealPlanEditor')}?planId=${plan.id}&from=patient:${encodeURIComponent(patientId)}`}>
                           <Button size="sm" variant="outline">
                             <Utensils size={14} className="mr-1" />
                             {plan.nutritionist_id === nutritionistEmail ? 'Editar' : 'Ver'}

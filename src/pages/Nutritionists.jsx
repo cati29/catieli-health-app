@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Search, Filter, Star, Award, MapPin, 
+import {
+  Search, Filter, Star, Award, MapPin,
   Users, MessageCircle
 } from 'lucide-react';
+import { createNotification, NotificationTemplates } from '@/components/notifications/NotificationHelper';
 
 export default function Nutritionists() {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ export default function Nutritionists() {
   const createConversationMutation = useMutation({
     mutationFn: async ({ nutritionistId, message }) => {
       const user = await appClient.auth.me();
-      
+
       const conversation = await appClient.entities.Conversation.create({
         user_id: user.email,
         nutritionist_id: nutritionistId,
@@ -67,6 +68,16 @@ export default function Nutritionists() {
         receiver_id: nutritionistId,
         message: message
       });
+
+      // Notifica nutricionista do novo pedido.
+      try {
+        const me = currentProfile;
+        const patientName = me ? `${me.first_name || ''} ${me.last_name || ''}`.trim() : user.email;
+        const tpl = NotificationTemplates.newPatientRequest(patientName);
+        await createNotification(nutritionistId, tpl.type, tpl.title, tpl.message, tpl.actionUrl, { conversation_id: conversation.id });
+      } catch (notifyError) {
+        console.warn('Falha ao notificar nutricionista', notifyError);
+      }
 
       return conversation;
     },

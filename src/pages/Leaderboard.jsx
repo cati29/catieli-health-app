@@ -79,8 +79,8 @@ export default function Leaderboard() {
   const topThreeOrder = [2, 1, 3];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50/20 pb-20 md:pb-8">
-      <div className="bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+    <div className="app-shell min-h-screen bg-gradient-to-b from-slate-50 via-white to-[#f4f7f8] pb-20 md:pb-8">
+      <div className="module-header">
         <div className="max-w-7xl mx-auto px-6 py-12">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center gap-3 mb-6">
@@ -89,7 +89,7 @@ export default function Leaderboard() {
               </div>
               <div>
                 <h1 className="text-4xl font-bold">Ranking</h1>
-                <p className="text-purple-100">
+                <p className="text-white/80">
                   {season?.label || 'Temporada atual'} com ligas e elo balanceados
                 </p>
               </div>
@@ -120,10 +120,10 @@ export default function Leaderboard() {
                     </div>
                     <div>
                       <p className="font-bold text-lg">Sua posição</p>
-                      <p className="text-purple-100">
+                      <p className="text-white/85">
                         {currentUserProfile.first_name} {currentUserProfile.last_name}
                       </p>
-                      <p className="text-xs text-purple-100/90 mt-1">
+                      <p className="text-xs text-white/75 mt-1">
                         Liga {leagueLabels[currentUserProfile.league] || 'Bronze'} | Elo {currentUserProfile.elo_rating || 0}
                       </p>
                     </div>
@@ -131,7 +131,7 @@ export default function Leaderboard() {
 
                   <div className="text-right">
                     <p className="text-3xl font-bold">#{currentUserRank}</p>
-                    <div className="flex items-center gap-1 justify-end text-purple-100">
+                    <div className="flex items-center gap-1 justify-end text-white/85">
                       <Zap size={16} />
                       <span>{displayXP(currentUserProfile)} XP</span>
                     </div>
@@ -157,8 +157,8 @@ export default function Leaderboard() {
               onClick={() => setTimeframe(option.value)}
               className={`px-6 py-2 rounded-xl font-medium whitespace-nowrap transition-colors ${
                 timeframe === option.value
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
-                  : 'bg-white text-gray-700 border border-gray-200 hover:border-purple-400'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:border-emerald-400'
               }`}
             >
               {option.label}

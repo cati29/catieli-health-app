@@ -116,7 +116,7 @@ export default function WearableConnection({ profile, onConnect }) {
 
       await appClient.entities.UserProfile.update(profile.id, {
         wearable_data: {
-          ...profile.wearable_data,
+          ...(profile.wearable_data || {}),
           last_sync: new Date().toISOString()
         }
       });

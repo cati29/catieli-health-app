@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useActivePatients } from '@/hooks/useActivePatients';
+import { createNotification, NotificationTemplates } from '@/components/notifications/NotificationHelper';
 
 export default function RoutineBuilder() {
   const navigate = useNavigate();
@@ -123,11 +124,24 @@ export default function RoutineBuilder() {
             user_id: user.email,
             created_by: user.email
           };
-      return appClient.entities.WorkoutRoutine.create({
+      const created = await appClient.entities.WorkoutRoutine.create({
         ...ownership,
         ...payload,
         is_active: true
       });
+
+      // Notificar paciente que recebeu o treino
+      if (isNutritionist && selectedPatientEmail) {
+        try {
+          const nutriName = currentProfile ? `${currentProfile.first_name || ''} ${currentProfile.last_name || ''}`.trim() : user.email;
+          const tpl = NotificationTemplates.workoutAssigned(nutriName, payload.name);
+          await createNotification(selectedPatientEmail, tpl.type, tpl.title, tpl.message, tpl.actionUrl, { routine_id: created?.id });
+        } catch (notifyError) {
+          console.warn('Falha ao notificar paciente sobre treino', notifyError);
+        }
+      }
+
+      return created;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workoutRoutines'] });
