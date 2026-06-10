@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
+import { createNotification, NotificationTemplates } from '@/components/notifications/NotificationHelper';
 
 const MEAL_LABELS = {
   breakfast: 'Café da manhã',
@@ -102,6 +103,24 @@ export default function MealPlanEditor() {
     initialData: []
   });
 
+  const { data: nutritionistProfile } = useQuery({
+    queryKey: ['nutritionistProfile', plan?.nutritionist_id],
+    queryFn: async () => {
+      const rows = await appClient.entities.UserProfile.filter(
+        { created_by: plan.nutritionist_id },
+        '-created_date',
+        1
+      );
+      return rows[0] || null;
+    },
+    enabled: Boolean(plan?.nutritionist_id),
+    staleTime: 300_000
+  });
+
+  const nutritionistName = nutritionistProfile
+    ? `${nutritionistProfile.first_name || ''} ${nutritionistProfile.last_name || ''}`.trim()
+    : null;
+
   const isNutritionistOwner = Boolean(
     currentProfile?.user_type === 'nutritionist' &&
     plan?.nutritionist_id &&
@@ -115,6 +134,24 @@ export default function MealPlanEditor() {
   );
   const canEdit = isNutritionistOwner || (isPatientOwner && !plan?.nutritionist_id);
 
+  const notifyPatientOfUpdate = async () => {
+    if (!plan?.nutritionist_id || !plan?.user_id) return;
+    if (plan.user_id === authEmail) return;
+    try {
+      const nutriProfiles = await appClient.entities.UserProfile.filter(
+        { created_by: plan.nutritionist_id },
+        '-created_date',
+        1
+      );
+      const nutri = nutriProfiles?.[0];
+      const nutriName = nutri ? `${nutri.first_name || ''} ${nutri.last_name || ''}`.trim() : null;
+      const tpl = NotificationTemplates.mealPlanUpdated(nutriName, plan.title);
+      await createNotification(plan.user_id, tpl.type, tpl.title, tpl.message, tpl.actionUrl, null);
+    } catch (err) {
+      console.warn('notify patient of meal plan update failed', err);
+    }
+  };
+
   const updateMealMutation = useMutation({
     mutationFn: async ({ id, patch }) => appClient.entities.Meal.update(id, patch),
     onSuccess: () => {
@@ -122,6 +159,7 @@ export default function MealPlanEditor() {
       setEditingMealId(null);
       setDraft(null);
       toast({ title: 'Refeição atualizada' });
+      notifyPatientOfUpdate();
     },
     onError: (err) => {
       toast({
@@ -156,6 +194,7 @@ export default function MealPlanEditor() {
       setCreatingDay(null);
       setDraft(null);
       toast({ title: 'Refeição adicionada' });
+      notifyPatientOfUpdate();
     },
     onError: (err) => {
       toast({
@@ -329,7 +368,7 @@ export default function MealPlanEditor() {
                 )}
                 {plan.nutritionist_id && (
                   <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">
-                    Atribuído pela nutricionista
+                    Atribuído por {nutritionistName || 'sua nutricionista'}
                   </span>
                 )}
               </div>

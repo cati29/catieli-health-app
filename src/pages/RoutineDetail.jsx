@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
+import { createNotification, NotificationTemplates } from '@/components/notifications/NotificationHelper';
 
 export default function RoutineDetail() {
   const location = useLocation();
@@ -65,6 +66,24 @@ export default function RoutineDetail() {
     queryFn: async () => appClient.entities.Exercise.list(),
     staleTime: 60_000
   });
+
+  const { data: nutritionistProfile } = useQuery({
+    queryKey: ['nutritionistProfile', routine?.nutritionist_id],
+    queryFn: async () => {
+      const rows = await appClient.entities.UserProfile.filter(
+        { created_by: routine.nutritionist_id },
+        '-created_date',
+        1
+      );
+      return rows[0] || null;
+    },
+    enabled: Boolean(routine?.nutritionist_id),
+    staleTime: 300_000
+  });
+
+  const nutritionistName = nutritionistProfile
+    ? `${nutritionistProfile.first_name || ''} ${nutritionistProfile.last_name || ''}`.trim()
+    : null;
 
   useEffect(() => {
     if (routine && !draft) {
@@ -126,6 +145,24 @@ export default function RoutineDetail() {
     startSessionMutation.mutate();
   }, [autoStart, routine, isEditing, startSessionMutation]);
 
+  const notifyPatientOfRoutineUpdate = async () => {
+    if (!routine?.nutritionist_id || !routine?.user_id) return;
+    if (routine.user_id === authEmail) return;
+    try {
+      const nutriProfiles = await appClient.entities.UserProfile.filter(
+        { created_by: routine.nutritionist_id },
+        '-created_date',
+        1
+      );
+      const nutri = nutriProfiles?.[0];
+      const nutriName = nutri ? `${nutri.first_name || ''} ${nutri.last_name || ''}`.trim() : null;
+      const tpl = NotificationTemplates.workoutUpdated(nutriName, routine.name);
+      await createNotification(routine.user_id, tpl.type, tpl.title, tpl.message, tpl.actionUrl, null);
+    } catch (err) {
+      console.warn('notify patient of routine update failed', err);
+    }
+  };
+
   const updateMutation = useMutation({
     mutationFn: async (patch) => appClient.entities.WorkoutRoutine.update(routine.id, patch),
     onSuccess: () => {
@@ -134,6 +171,7 @@ export default function RoutineDetail() {
       queryClient.invalidateQueries({ queryKey: ['assignedWorkouts'] });
       setIsEditing(false);
       toast({ title: 'Rotina atualizada', description: 'As alterações foram salvas.' });
+      notifyPatientOfRoutineUpdate();
     },
     onError: (err) => {
       toast({ title: 'Falha ao salvar', description: err?.message || 'Erro desconhecido', variant: 'destructive' });
@@ -257,7 +295,7 @@ export default function RoutineDetail() {
                   )}
                   {routine.nutritionist_id && (
                     <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">
-                      Atribuído pela nutricionista
+                      Atribuído por {nutritionistName || 'sua nutricionista'}
                     </span>
                   )}
                 </div>

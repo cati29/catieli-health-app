@@ -1,6 +1,39 @@
 import { appClient } from '@/api/appClient';
+import { createNotification, NotificationTemplates } from '@/components/notifications/NotificationHelper';
 
 const LLM_TIMEOUT_MS = 60_000;
+
+async function getNutritionistDisplayName(nutritionistEmail) {
+  if (!nutritionistEmail) return null;
+  try {
+    const profiles = await appClient.entities.UserProfile.filter(
+      { created_by: nutritionistEmail },
+      '-created_date',
+      1
+    );
+    const profile = profiles?.[0];
+    if (!profile) return null;
+    const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+    return name || null;
+  } catch {
+    return null;
+  }
+}
+
+async function notifySafe(targetEmail, template) {
+  try {
+    await createNotification(
+      targetEmail,
+      template.type,
+      template.title,
+      template.message,
+      template.actionUrl,
+      null
+    );
+  } catch (err) {
+    console.warn('notifySafe falhou', err);
+  }
+}
 
 function withTimeout(promise, ms) {
   return new Promise((resolve, reject) => {
@@ -251,6 +284,11 @@ INSTRUÇÕES:
       throw new Error(`Erro ao salvar plano: ${createError?.message || 'tente novamente'}`);
     }
 
+    if (nutritionistEmail && nutritionistEmail !== targetEmail) {
+      const nutriName = await getNutritionistDisplayName(nutritionistEmail);
+      await notifySafe(targetEmail, NotificationTemplates.workoutAssigned(nutriName, planTitle));
+    }
+
     return { created, planTitle };
   },
 
@@ -394,6 +432,11 @@ Para cada dia, forneça 4 refeições (café da manhã, almoço, jantar, lanche)
         // best effort
       }
       throw new Error(`Erro ao salvar refeições: ${mealError?.message || 'tente novamente'}`);
+    }
+
+    if (nutritionistEmail && nutritionistEmail !== targetEmail) {
+      const nutriName = await getNutritionistDisplayName(nutritionistEmail);
+      await notifySafe(targetEmail, NotificationTemplates.mealPlanAssigned(nutriName, title));
     }
 
     return { mealPlan, title, daysCreated: generatedDays.length };

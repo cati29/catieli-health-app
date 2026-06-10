@@ -5,7 +5,7 @@ const TRANSLATIONS = [
   { match: /user already registered|already registered|user_already_exists/i, message: 'Já existe uma conta com este email.' },
   { match: /invalid login credentials/i, message: 'Email ou senha incorretos.' },
   { match: /email not confirmed/i, message: 'Confirme seu email antes de entrar. Verifique sua caixa de entrada.' },
-  { match: /invalid email/i, message: 'Email inválido.' },
+  { match: /invalid email|email address.*invalid|email.*not valid/i, message: 'Email inválido. Use um endereço de email válido.' },
   { match: /signup is disabled/i, message: 'Cadastros estão temporariamente desabilitados.' },
   { match: /network request failed|failed to fetch/i, message: 'Sem conexão. Verifique sua internet e tente novamente.' },
   { match: /token has expired|jwt expired/i, message: 'Sessão expirada. Faça login novamente.' },

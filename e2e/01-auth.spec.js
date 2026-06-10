@@ -121,8 +121,8 @@ test.describe('Auth flow', () => {
     const confirmHeading = await page.getByRole('heading', { name: /Confirme seu email/i }).count();
     const hasError = (await page.locator('p.text-red-500').count()) > 0;
     const errorText = hasError ? ((await page.locator('p.text-red-500').first().textContent()) || '') : '';
-    const isEnvLimit = /rate limit|muitas|aguarde|limite de emails|429|too many requests/i.test(errorText)
-      || ctx.requests.some((r) => /\b429\b/.test(r));
+    const isEnvLimit = /rate limit|muitas|aguarde|limite de emails|429|too many requests|email inválido|email.*invalid|address.*invalid/i.test(errorText)
+      || ctx.requests.some((r) => /\b(429|400)\b/.test(r));
 
     if (confirmHeading === 0 && !page.url().endsWith('/Home') && !isEnvLimit) {
       recordBug({

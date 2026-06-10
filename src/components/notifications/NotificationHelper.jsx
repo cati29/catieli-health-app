@@ -152,6 +152,20 @@ export const NotificationTemplates = {
     actionUrl: '/MealPlans'
   }),
 
+  workoutUpdated: (nutritionistName, routineName) => ({
+    type: 'workout_updated',
+    title: 'Treino atualizado',
+    message: `${nutritionistName || 'Sua nutricionista'} atualizou o treino "${routineName || 'sem título'}".`,
+    actionUrl: '/WorkoutTracker'
+  }),
+
+  mealPlanUpdated: (nutritionistName, planTitle) => ({
+    type: 'meal_plan_updated',
+    title: 'Plano alimentar atualizado',
+    message: `${nutritionistName || 'Sua nutricionista'} fez alterações no plano "${planTitle || 'sem título'}".`,
+    actionUrl: '/MealPlans'
+  }),
+
   newPatientMessage: (patientName) => ({
     type: 'patient_message',
     title: 'Nova mensagem do paciente',
