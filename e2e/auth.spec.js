@@ -40,7 +40,9 @@ test.describe('Fluxos de autenticação', () => {
     await page.goto('/Register');
     await waitNetworkIdle(page);
 
-    await expect(page.getByText(/Criar conta/i).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Vamos começar/i })).toBeVisible();
+    await expect(page.getByPlaceholder('Seu nome')).toBeVisible();
+    await expect(page.getByPlaceholder('Seu sobrenome')).toBeVisible();
   });
 
   test('ForgotPassword: tela acessível sem autenticação', async ({ page }) => {
