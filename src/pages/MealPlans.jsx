@@ -862,7 +862,7 @@ REGRAS:
 
       {/* Generator Dialog */}
       <Dialog open={showGenerator} onOpenChange={setShowGenerator}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
               <Sparkles className="text-orange-500" />
