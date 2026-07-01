@@ -94,28 +94,6 @@ export default function Login() {
     }
   };
 
-  const handleExitPlatform = async () => {
-    try {
-      await appClient.auth.logout();
-    } catch {
-      // no-op
-    }
-
-    if (typeof window === 'undefined') return;
-
-    if (window.opener) {
-      window.close();
-      return;
-    }
-
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
-    window.location.href = 'about:blank';
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-4">
       <motion.div
@@ -188,15 +166,6 @@ export default function Login() {
               </Link>
             </p>
           </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleExitPlatform}
-            className="w-full mt-6"
-          >
-            Sair da plataforma
-          </Button>
         </div>
       </motion.div>
     </div>
