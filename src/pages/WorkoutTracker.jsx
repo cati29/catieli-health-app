@@ -230,7 +230,7 @@ export default function WorkoutTracker() {
                         className="w-full bg-indigo-500 hover:bg-indigo-600"
                         onClick={(event) => {
                           event.stopPropagation();
-                          navigate(`${detailUrl}&start=1`);
+                          navigate(detailUrl);
                         }}
                       >
                         <Play size={14} className="mr-2" />
