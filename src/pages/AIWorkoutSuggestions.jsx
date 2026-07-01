@@ -80,20 +80,6 @@ export default function AIWorkoutSuggestions() {
   const generateWorkoutMutation = useMutation({
     mutationFn: async (suggestedRoutine) => {
       const user = await appClient.auth.me();
-      // Deactivate previously active routines so only the newly saved one is active
-      try {
-        const activeRoutines = await appClient.entities.WorkoutRoutine.filter({
-          user_id: user.email,
-          is_active: true
-        });
-        await Promise.allSettled(
-          (activeRoutines || []).map((r) =>
-            appClient.entities.WorkoutRoutine.update(r.id, { is_active: false })
-          )
-        );
-      } catch (deactivateError) {
-        console.warn('Falha ao desativar rotinas anteriores (seguindo mesmo assim)', deactivateError);
-      }
       return appClient.entities.WorkoutRoutine.create({
         user_id: user.email,
         name: suggestedRoutine.name,
